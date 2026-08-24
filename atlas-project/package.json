@@ -1,0 +1,9 @@
+{
+  "name": "archipel-de-lannee",
+  "version": "0.1.0",
+  "private": true,
+  "description": "To-do gamifiée en archipel d'îles à découvrir, mois par mois.",
+  "scripts": {
+    "dev": "npx serve . -l 3000"
+  }
+}

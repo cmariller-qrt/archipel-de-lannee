@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archipel de l'Année</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="topbar">
+  <div class="brand title-font">🧭 ARCHIPEL DE L'ANNÉE</div>
+  <div class="badge-count" id="badge-count-btn">🦊 <span id="badge-count-num">0</span>/12</div>
+</div>
+
+<div class="radial-outer">
+  <div class="radial-container" id="radial-container"></div>
+</div>
+
+<div class="badges-section">
+  <div class="badges-section-head">
+    <h2 class="title-font">Ta collection d'animaux</h2>
+    <div class="count mono" id="badges-section-count">0 / 12</div>
+  </div>
+  <div class="badges-grid" id="badges-grid-static"></div>
+</div>
+
+<div class="notes-section">
+  <div class="notes-section-head">
+    <h2 class="title-font">📝 Bloc-notes</h2>
+    <div class="notes-saved-indicator" id="notes-saved-indicator"></div>
+  </div>
+  <textarea class="notes-textarea" id="notes-textarea" placeholder="Idées, rappels, choses à ne pas oublier pour l'année…"></textarea>
+</div>
+
+<div id="toast-zone"></div>
+<div class="overlay" id="month-overlay"><div class="panel" id="month-panel"></div></div>
+<div class="overlay" id="level-overlay"><div class="panel" id="level-panel"></div></div>
+
+<!-- SDK Supabase (client officiel, via CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<!-- Configuration : voir js/config.example.js pour créer js/config.js -->
+<script src="js/config.js"></script>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

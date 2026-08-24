@@ -1,0 +1,9 @@
+# Clés Supabase locales — ne jamais committer (chacun crée le sien depuis config.example.js)
+js/config.js
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Dépendances (si tu ajoutes un jour un outil de build)
+node_modules/
