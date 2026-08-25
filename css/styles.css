@@ -119,11 +119,13 @@ body{
 }
 .zoom-overlay.show{ background:rgba(4,6,15,0.75); }
 .zoom-clone{
-  position:fixed; z-index:81; pointer-events:none;
+  position:fixed; z-index:90; pointer-events:none;
   filter:drop-shadow(0 24px 34px rgba(0,0,0,0.55));
   transition: left .55s cubic-bezier(.34,1.4,.4,1), top .55s cubic-bezier(.34,1.4,.4,1),
               width .55s cubic-bezier(.34,1.4,.4,1), height .55s cubic-bezier(.34,1.4,.4,1);
 }
+.zoom-clone.arrived{ pointer-events:auto; cursor:zoom-in; }
+.zoom-clone.arrived.zoomed-in{ cursor:zoom-out; }
 .zoom-clone svg{ width:100%; height:100%; }
 .zoom-clone-label{
   position:absolute; left:50%; bottom:-30px; transform:translateX(-50%);
@@ -143,7 +145,7 @@ body{
 .overlay.open{opacity:1; pointer-events:auto;}
 /* Quand le panneau s'ouvre après le zoom sur une île : pas de second fond noir,
    et on passe au-dessus de l'île zoomée pour rester interactif */
-.overlay.zoomed{ background:transparent; z-index:82; }
+.overlay.zoomed{ background:transparent; z-index:82; justify-content:flex-end; align-items:stretch; }
 .panel{
   width:100%; max-width:540px; max-height:66vh; overflow-y:auto;
   background:var(--panel); border-radius:20px 20px 0 0;
@@ -153,6 +155,14 @@ body{
   box-shadow:0 -10px 40px rgba(0,0,0,0.5);
 }
 .overlay.open .panel{transform:translateY(0);}
+/* Panneau de mois (après clic sur une île) : bascule à droite, île zoomée visible à gauche */
+.overlay.zoomed .panel{
+  width:min(460px, 42vw); min-width:300px; max-width:460px; max-height:100%; height:100%;
+  border-radius:20px 0 0 20px; border-bottom:1px solid rgba(255,255,255,0.08); border-right:none;
+  transform:translateX(100%);
+  box-shadow:-14px 0 40px rgba(0,0,0,0.5);
+}
+.overlay.zoomed.open .panel{transform:translateX(0);}
 .panel-head{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
 .panel-head .emoji-big{font-size:34px;}
 .panel-head h2{margin:0; font-size:20px;}

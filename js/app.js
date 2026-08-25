@@ -10,6 +10,11 @@ function subPercent(sub){
   if(sub.status==='in_progress') return sub.percent ?? STATUS_META.in_progress.pctDefault;
   return STATUS_META[sub.status].pct;
 }
+// Un projet sans sous-catégorie compte pour 0% dans les statistiques (mois/année),
+// au lieu d'être ignoré silencieusement comme s'il n'existait pas.
+function effectiveSubs(p){
+  return p.subs.length ? p.subs : [{status:'not_started'}];
+}
 
 /* ============ DATA ============ */
 const SEASONS = {
@@ -214,7 +219,7 @@ let PROJECTS = [
 // différente (pas uniquement "ce mois précis terminé à 100%"), pour avancer en parallèle
 // de la découverte des îles et des projets tout au long de l'année.
 function isMonthFullyDone(monthId){
-  const subs = projectsForMonth(monthId).flatMap(p=>p.subs);
+  const subs = projectsForMonth(monthId).flatMap(effectiveSubs);
   return subs.length>0 && subs.every(s=>s.status==='done');
 }
 const ANIMAL_BADGES = [
@@ -233,20 +238,21 @@ const ANIMAL_BADGES = [
 ];
 
 /* ============ HELPERS ============ */
-function projectsForMonth(m){ return PROJECTS.filter(p=>p.month===m); }
+function projectsForMonth(m){ return PROJECTS.filter(p=>p.month===m && !p.archived); }
 function monthStats(m){
   const projs = projectsForMonth(m);
-  const subs = projs.flatMap(p=>p.subs);
+  const subs = projs.flatMap(effectiveSubs);
   const pct = subs.length ? Math.round(subs.reduce((a,s)=>a+subPercent(s),0)/subs.length) : 100;
   const doneCount = subs.filter(s=>s.status==='done').length;
   return {total:subs.length, doneCount, pct};
 }
 function globalStats(){
-  const allSubs = PROJECTS.flatMap(p=>p.subs);
+  const activeProjects = PROJECTS.filter(p=>!p.archived);
+  const allSubs = activeProjects.flatMap(effectiveSubs);
   const subsDone = allSubs.filter(s=>s.status==='done').length;
-  const projectsDone = PROJECTS.filter(p=>p.subs.length>0 && p.subs.every(s=>s.status==='done')).length;
+  const projectsDone = activeProjects.filter(p=>p.subs.length>0 && p.subs.every(s=>s.status==='done')).length;
   const monthsDone = MONTHS.filter(m=>{
-    const subs = projectsForMonth(m.id).flatMap(p=>p.subs);
+    const subs = projectsForMonth(m.id).flatMap(effectiveSubs);
     return subs.length>0 && subs.every(s=>s.status==='done');
   }).length;
   const yearPct = allSubs.length ? Math.round(allSubs.reduce((a,s)=>a+subPercent(s),0)/allSubs.length) : 0;
@@ -686,14 +692,37 @@ function playIslandZoom(monthId, seasonKey, originEl, monthName, onDone){
   // force reflow avant de déclencher la transition
   clone.getBoundingClientRect();
 
+  // Le panneau de mois s'ouvre à droite : l'île zoomée se centre dans la zone restante à gauche.
+  // Chaque clic sur l'île, une fois arrivée, la fait grossir un peu plus (3 paliers), puis revient à la taille normale.
+  const ZOOM_LEVELS = [
+    {wRatio:0.84, hRatio:0.64, cap:460},
+    {wRatio:0.94, hRatio:0.82, cap:620},
+    {wRatio:0.99, hRatio:0.95, cap:900}
+  ];
+  let zoomLevel = 0;
+  function placeClone(level){
+    const panelWidth = Math.max(300, Math.min(460, window.innerWidth*0.42));
+    const leftAreaWidth = Math.max(window.innerWidth - panelWidth, window.innerWidth*0.3);
+    const l = ZOOM_LEVELS[level];
+    const size = Math.min(leftAreaWidth*l.wRatio, window.innerHeight*l.hRatio, l.cap);
+    clone.style.left = (leftAreaWidth/2 - size/2)+'px';
+    clone.style.top = (window.innerHeight/2 - size/2)+'px';
+    clone.style.width = size+'px';
+    clone.style.height = size+'px';
+  }
+
   requestAnimationFrame(()=>{
     overlay.classList.add('show');
-    const targetSize = Math.min(window.innerWidth*0.72, window.innerHeight*0.34, 340);
-    clone.style.left = (window.innerWidth/2 - targetSize/2)+'px';
-    clone.style.top = (window.innerHeight*0.11)+'px';
-    clone.style.width = targetSize+'px';
-    clone.style.height = targetSize+'px';
+    placeClone(0);
     setTimeout(()=> clone.classList.add('arrived'), 520);
+  });
+
+  clone.addEventListener('click', (e)=>{
+    if(!clone.classList.contains('arrived')) return;
+    e.stopPropagation();
+    zoomLevel = (zoomLevel + 1) % ZOOM_LEVELS.length;
+    clone.classList.toggle('zoomed-in', zoomLevel > 0);
+    placeClone(zoomLevel);
   });
 
   currentZoomOverlay = overlay;
@@ -1016,10 +1045,27 @@ function openFullTodoTab(){
 '.score-num{font-family:\'JetBrains Mono\',monospace; font-size:24px; font-weight:700; color:var(--gold);}',
 '.score-label{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em;}',
 '.month{margin-bottom:22px;}',
-'.month-title{display:flex; align-items:center; gap:8px; font-size:15.5px; font-weight:600; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px;}',
+'.month-title{display:flex; align-items:center; gap:8px; font-size:15.5px; font-weight:600; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px; cursor:pointer; user-select:none;}',
+'.month-arrow{display:inline-flex; transition:transform 0.18s ease; flex-shrink:0; font-size:11px; color:var(--muted);}',
+'.month-arrow.collapsed{transform:rotate(-90deg);}',
+'.month-body.collapsed{display:none;}',
+'.archive-btn{background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:2px 6px; border-radius:6px;}',
+'.archive-btn:hover{color:var(--gold); background:rgba(240,193,92,0.12);}',
+'.archived-section{margin-top:34px; padding-top:18px; border-top:1px solid rgba(255,255,255,0.1);}',
+'.archived-title{display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600; color:var(--muted); cursor:pointer; user-select:none; margin-bottom:12px;}',
+'.archived-body.collapsed{display:none;}',
+'.archived-project{opacity:0.62; border-style:dashed;}',
+'.archived-project:hover{opacity:0.85;}',
+'.archived-month-tag{font-size:10.5px; color:var(--muted); font-family:\'JetBrains Mono\',monospace; margin-right:6px;}',
+'.unarchive-btn{background:none; border:1px solid rgba(255,255,255,0.18); color:var(--white); cursor:pointer; font-size:11px; padding:4px 9px; border-radius:8px; font-weight:700;}',
+'.unarchive-btn:hover{border-color:var(--gold); color:var(--gold);}',
 '.mdot{width:9px;height:9px;border-radius:50%; flex-shrink:0;}',
 '.mstat{margin-left:auto; font-family:\'JetBrains Mono\',monospace; font-size:12px; color:var(--muted); font-weight:400;}',
-'.project{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:14px 16px; margin-bottom:10px;}',
+'.project{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:14px 16px; margin-bottom:10px; transition:opacity 0.15s, border-color 0.15s;}',
+'.project[draggable="true"]{cursor:grab;}',
+'.project.dragging{opacity:0.35; border-style:dashed;}',
+'.drag-handle{color:var(--muted); font-size:13px; cursor:grab; flex-shrink:0; line-height:1;}',
+'.month.drag-over{outline:2px dashed var(--gold); outline-offset:4px; background:rgba(240,193,92,0.06); border-radius:14px;}',
 '.project-head{display:flex; align-items:center; gap:8px; margin-bottom:10px;}',
 '.pdot{width:9px;height:9px;border-radius:50%; flex-shrink:0;}',
 '.project-title{font-weight:700; font-size:14px; flex:1;}',
@@ -1066,6 +1112,7 @@ function openFullTodoTab(){
 '  <div class="sync-note">🔄 Les modifications faites ici se répercutent automatiquement sur la carte de l\'archipel, tant que cet onglet reste ouvert.</div>',
 '  <div class="score-bar" id="score-bar"></div>',
 '  <div id="months-container"></div>',
+'  <div id="archived-container"></div>',
 '</div>',
 '<script>',
 'var MONTHS = ' + monthsJson + ';',
@@ -1083,11 +1130,13 @@ function openFullTodoTab(){
 '  return STATUS_META[sub.status].pct;',
 '}',
 'function newId(prefix){ return prefix + Date.now().toString(36) + Math.floor(Math.random()*1000); }',
-'function projectsForMonth(m){ return DATA.filter(function(p){ return p.month===m; }); }',
+'function projectsForMonth(m){ return DATA.filter(function(p){ return p.month===m && !p.archived; }); }',
+'function archivedProjects(){ return DATA.filter(function(p){ return p.archived; }); }',
+'function effectiveSubs(p){ return p.subs.length ? p.subs : [{status:"not_started"}]; }',
 'function monthPct(m){',
 '  var projs = projectsForMonth(m);',
 '  var subs = [];',
-'  projs.forEach(function(p){ subs = subs.concat(p.subs); });',
+'  projs.forEach(function(p){ subs = subs.concat(effectiveSubs(p)); });',
 '  if(subs.length===0) return 100;',
 '  var sum = 0; subs.forEach(function(s){ sum += subPercent(s); });',
 '  return Math.round(sum/subs.length);',
@@ -1098,17 +1147,17 @@ function openFullTodoTab(){
 '  return Math.round(sum/p.subs.length);',
 '}',
 'function globalPct(){',
-'  var subs = []; DATA.forEach(function(p){ subs = subs.concat(p.subs); });',
+'  var subs = []; DATA.forEach(function(p){ if(!p.archived) subs = subs.concat(effectiveSubs(p)); });',
 '  if(subs.length===0) return 0;',
 '  var sum = 0; subs.forEach(function(s){ sum += subPercent(s); });',
 '  return Math.round(sum/subs.length);',
 '}',
 'function globalXp(){',
-'  var subs = []; DATA.forEach(function(p){ subs = subs.concat(p.subs); });',
+'  var subs = []; DATA.forEach(function(p){ if(!p.archived) subs = subs.concat(effectiveSubs(p)); });',
 '  var xp = 0; subs.forEach(function(s){ xp += subPercent(s)/100*20; });',
-'  var projectsDone = DATA.filter(function(p){ return p.subs.length>0 && p.subs.every(function(s){return s.status==="done";}); }).length;',
+'  var projectsDone = DATA.filter(function(p){ return !p.archived && p.subs.length>0 && p.subs.every(function(s){return s.status==="done";}); }).length;',
 '  var monthsDone = MONTHS.filter(function(m){',
-'    var subs2 = []; projectsForMonth(m.id).forEach(function(p){ subs2 = subs2.concat(p.subs); });',
+'    var subs2 = []; projectsForMonth(m.id).forEach(function(p){ subs2 = subs2.concat(effectiveSubs(p)); });',
 '    return subs2.length>0 && subs2.every(function(s){return s.status==="done";});',
 '  }).length;',
 '  return Math.round(xp) + projectsDone*60 + monthsDone*100;',
@@ -1142,6 +1191,11 @@ function openFullTodoTab(){
 'var openComments = {};',
 'function toggleComments(subId){',
 '  openComments[subId] = !openComments[subId];',
+'  render();',
+'}',
+'var collapsedMonths = {};',
+'function toggleMonth(monthId){',
+'  collapsedMonths[monthId] = !collapsedMonths[monthId];',
 '  render();',
 '}',
 'function addComment(projId, subId){',
@@ -1180,6 +1234,56 @@ function openFullTodoTab(){
 '  DATA = DATA.filter(function(p){return p.id!==projId;});',
 '  render(); sync();',
 '}',
+'function moveProjectToMonth(projId, monthId){',
+'  var p = DATA.find(function(x){return x.id===projId;});',
+'  if(!p || p.month===monthId) return;',
+'  p.month = monthId;',
+'  p.color = SEASONS[MONTHS.find(function(m){return m.id===monthId;}).season].color;',
+'  render(); sync();',
+'}',
+'var draggedProjectId = null;',
+'function onProjectDragStart(e, projId){',
+'  draggedProjectId = projId;',
+'  e.dataTransfer.effectAllowed = "move";',
+'  try { e.dataTransfer.setData("text/plain", projId); } catch(err){}',
+'  e.currentTarget.classList.add("dragging");',
+'}',
+'function onProjectDragEnd(e){',
+'  e.currentTarget.classList.remove("dragging");',
+'  draggedProjectId = null;',
+'}',
+'function onMonthDragOver(e){',
+'  if(!draggedProjectId) return;',
+'  e.preventDefault();',
+'  e.dataTransfer.dropEffect = "move";',
+'  e.currentTarget.classList.add("drag-over");',
+'}',
+'function onMonthDragLeave(e){',
+'  if(e.currentTarget.contains(e.relatedTarget)) return;',
+'  e.currentTarget.classList.remove("drag-over");',
+'}',
+'function onMonthDrop(e, monthId){',
+'  e.preventDefault();',
+'  e.currentTarget.classList.remove("drag-over");',
+'  var projId = draggedProjectId || e.dataTransfer.getData("text/plain");',
+'  if(projId) moveProjectToMonth(projId, monthId);',
+'  draggedProjectId = null;',
+'}',
+'function archiveProject(projId){',
+'  var p = DATA.find(function(x){return x.id===projId;});',
+'  p.archived = true;',
+'  render(); sync();',
+'}',
+'function unarchiveProject(projId){',
+'  var p = DATA.find(function(x){return x.id===projId;});',
+'  p.archived = false;',
+'  render(); sync();',
+'}',
+'var archivedCollapsed = true;',
+'function toggleArchivedSection(){',
+'  archivedCollapsed = !archivedCollapsed;',
+'  render();',
+'}',
 'function addSub(projId){',
 '  var nameInput = document.getElementById("newsub-name-"+projId);',
 '  var dateInput = document.getElementById("newsub-date-"+projId);',
@@ -1211,11 +1315,13 @@ function openFullTodoTab(){
 '  MONTHS.forEach(function(m){',
 '    var projs = projectsForMonth(m.id);',
 '    var seasonColor = SEASONS[m.season].color;',
-'    out.push("<section class=\\"month\\">");',
-'    out.push("<div class=\\"month-title\\"><span class=\\"mdot\\" style=\\"background:"+seasonColor+"\\"></span>"+m.emoji+" "+m.name+"<span class=\\"mstat\\">"+monthPct(m.id)+"%</span></div>");',
+'    var collapsed = !!collapsedMonths[m.id];',
+'    out.push("<section class=\\"month\\" ondragover=\\"onMonthDragOver(event)\\" ondragleave=\\"onMonthDragLeave(event)\\" ondrop=\\"onMonthDrop(event,"+m.id+")\\">");',
+'    out.push("<div class=\\"month-title\\" onclick=\\"toggleMonth("+m.id+")\\"><span class=\\"month-arrow"+(collapsed?" collapsed":"")+"\\">▾</span><span class=\\"mdot\\" style=\\"background:"+seasonColor+"\\"></span>"+m.emoji+" "+m.name+"<span class=\\"mstat\\">"+monthPct(m.id)+"%</span></div>");',
+'    out.push("<div class=\\"month-body"+(collapsed?" collapsed":"")+"\\">");',
 '    projs.forEach(function(p){',
-'      out.push("<div class=\\"project\\">");',
-'      out.push("<div class=\\"project-head\\"><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\">"+p.name+"</span><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
+'      out.push("<div class=\\"project\\" draggable=\\"true\\" ondragstart=\\"onProjectDragStart(event,\'"+p.id+"\')\\" ondragend=\\"onProjectDragEnd(event)\\">");',
+'      out.push("<div class=\\"project-head\\"><span class=\\"drag-handle\\" title=\\"Glisser pour changer de mois\\">⠿</span><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\">"+p.name+"</span><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"archive-btn\\" onclick=\\"archiveProject(\'"+p.id+"\')\\" title=\\"Archiver ce projet (retiré de la to-do et de la découverte des îles, gardé en historique)\\">📦</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
 '      p.subs.forEach(function(s){',
 '        var pct = subPercent(s);',
 '        var color = STATUS_META[s.status].color;',
@@ -1254,26 +1360,43 @@ function openFullTodoTab(){
 '    out.push("<input class=\\"name\\" id=\\"newproj-"+m.id+"\\" placeholder=\\"Nom du projet\\">");',
 '    out.push("<button onclick=\\"addProject("+m.id+")\\">Ajouter</button>");',
 '    out.push("</div></div>");',
+'    out.push("</div>");',
 '    out.push("</section>");',
 '  });',
 '  document.getElementById("months-container").innerHTML = out.join("");',
+'',
+'  var archived = archivedProjects();',
+'  var outA = [];',
+'  outA.push("<section class=\\"archived-section\\">");',
+'  outA.push("<div class=\\"archived-title\\" onclick=\\"toggleArchivedSection()\\"><span class=\\"month-arrow"+(archivedCollapsed?" collapsed":"")+"\\">▾</span>🗄️ Projets archivés (historique)<span class=\\"mstat\\">"+archived.length+"</span></div>");',
+'  outA.push("<div class=\\"archived-body"+(archivedCollapsed?" collapsed":"")+"\\">");',
+'  if(archived.length===0){',
+'    outA.push("<p style=\\"color:var(--muted); font-size:12.5px;\\">Aucun projet archivé pour le moment.</p>");',
+'  }',
+'  archived.forEach(function(p){',
+'    var monthName = MONTHS[p.month] ? MONTHS[p.month].name : "?";',
+'    outA.push("<div class=\\"project archived-project\\">");',
+'    outA.push("<div class=\\"project-head\\"><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"archived-month-tag\\">"+monthName+"</span><span class=\\"project-title\\">"+p.name+"</span><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"unarchive-btn\\" onclick=\\"unarchiveProject(\'"+p.id+"\')\\" title=\\"Remettre ce projet dans la to-do active\\">♻️ Désarchiver</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer définitivement\\">✕</button></div>");',
+'    p.subs.forEach(function(s){',
+'      var pct = subPercent(s);',
+'      var color = STATUS_META[s.status].color;',
+'      outA.push("<div class=\\"subcat-row\\"><div class=\\"subcat-top\\"><div class=\\"subcat-name\\">"+s.name+"</div><div class=\\"subcat-date\\">"+s.date+"</div><div class=\\"subcat-pct\\" style=\\"background:"+color+"22;color:"+color+"\\">"+pct+"%</div></div></div>");',
+'    });',
+'    outA.push("</div>");',
+'  });',
+'  outA.push("</div>");',
+'  outA.push("</section>");',
+'  document.getElementById("archived-container").innerHTML = outA.join("");',
 '}',
 'render();',
 '<' + '/script>',
 '</body></html>'
   ].join('\n');
 
-  const blob = new Blob([html], {type:'text/html'});
-  const url = URL.createObjectURL(blob);
-  let win = null;
-  try { win = window.open(url, '_blank'); } catch(e){ win = null; }
-  const blocked = !win || typeof win.closed === 'undefined' || win.closed;
-  if(blocked){
-    openFullTodoOverlay(html);
-  }
+  openFullTodoOverlay(html);
 }
 
-/* Repli si la pop-up est bloquée : ouvre la même page de travail en plein écran, dans un iframe isolé */
+/* Ouvre la page de travail "to-do complète" en plein écran, directement dans un iframe isolé sur la même page */
 function openFullTodoOverlay(html){
   let overlay = document.getElementById('fulltodo-overlay');
   if(overlay){ overlay.querySelector('iframe').srcdoc = html; overlay.style.display='block'; return; }
@@ -1290,7 +1413,6 @@ function openFullTodoOverlay(html){
   overlay.appendChild(closeBtn);
   overlay.appendChild(iframe);
   document.body.appendChild(overlay);
-  showToast('📋', "Pop-up bloquée par le navigateur : ouverture en plein écran ici à la place");
 }
 
 /* ============ SYNCHRO AVEC L'ONGLET "TO-DO COMPLÈTE" ============ */

@@ -160,3 +160,38 @@ réécriture de ce qui existe déjà.
   entre les deux onglets du même navigateur (voir `openFullTodoTab` dans `app.js`) ; ce
   n'est pas encore relié à Supabase indépendamment — la sauvegarde se déclenche via la
   page principale qui reçoit la synchro.
+
+---
+
+## Journal des modifications
+
+Historique des échanges avec l'assistant, pour garder trace des évolutions apportées au
+fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
+
+### 2026-08-25
+
+- **To-do centrale (île du milieu)** : s'ouvre désormais toujours en plein écran sur la
+  même page (overlay + `<iframe>` isolé), au lieu d'un nouvel onglet qui pouvait être
+  bloqué par le navigateur (`openFullTodoOverlay` dans `app.js`).
+- **To-do complète — mois repliables** : chaque mois a une flèche cliquable pour
+  replier/déplier la liste de ses projets.
+- **To-do complète — archivage de projet** : bouton 📦 pour archiver un projet (bouton
+  ♻️ pour le désarchiver). Un projet archivé sort du calcul de progression et de la
+  découverte des îles, mais reste visible dans une section « Projets archivés
+  (historique) » repliable en bas de page.
+- **To-do complète — déplacer un projet entre mois** : glisser-déposer (drag and drop)
+  d'une carte projet vers un autre mois ; la couleur du projet est mise à jour selon la
+  saison de sa nouvelle destination.
+- **Clic sur une île du mois** : le panneau de to-do du mois s'ouvre en panneau latéral
+  à droite, l'île zoomée s'affiche agrandie dans la zone restante à gauche. Cliquer sur
+  l'île zoomée la fait grossir par paliers (3 tailles), jusqu'à occuper presque toute la
+  zone gauche. (Ce comportement reste spécifique aux 12 îles des mois — la to-do centrale
+  n'est pas concernée et garde son ouverture plein écran.)
+- **Correctif de calcul de progression** : un projet sans aucune sous-catégorie compte
+  désormais pour 0 % dans la progression du mois/année (au lieu d'être ignoré et de
+  laisser le mois passer à 100 % / « libre » par défaut). L'île reste donc dans le
+  brouillard tant que ce projet n'a pas été détaillé en sous-catégories.
+- **Image de l'île de janvier** remplacée (`assets/islands/00_Janvier.png`).
+- Rappel des contraintes pour remplacer une image d'île : ratio **4:3**, résolution
+  conseillée **1600×1200 px minimum** (2000×1500 px pour un rendu net avec le zoom),
+  PNG à fond transparent.
