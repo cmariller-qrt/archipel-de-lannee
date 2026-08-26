@@ -168,6 +168,17 @@ réécriture de ce qui existe déjà.
 Historique des échanges avec l'assistant, pour garder trace des évolutions apportées au
 fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
 
+### 2026-08-26
+
+- **Sous-sous-catégories** : chaque sous-catégorie peut désormais avoir ses propres
+  sous-sous-catégories (mêmes 4 statuts et %). Dès qu'une sous-catégorie en a au moins
+  une, son propre % devient automatiquement la moyenne de ses sous-sous-catégories (même
+  logique que projet ↔ sous-catégories) — plus besoin de le régler à la main. Ajout via
+  « + Ajouter une sous-sous-catégorie » dans l'onglet « To-do complète » ; le panneau
+  latéral d'une île (clic sur une île du mois) permet aussi de faire évoluer leur statut.
+- **Renommer projets / sous-catégories / sous-sous-catégories** : un bouton ✎ à côté de
+  chaque nom permet de le modifier (dans l'onglet « To-do complète »).
+
 ### 2026-08-25
 
 - **To-do centrale (île du milieu)** : s'ouvre désormais toujours en plein écran sur la

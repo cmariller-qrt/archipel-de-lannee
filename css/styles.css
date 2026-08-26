@@ -250,6 +250,12 @@ body{
   padding:2px 7px; border-radius:6px; flex-shrink:0;
 }
 
+.subsubs-wrap{margin-top:4px; padding-left:14px; border-left:2px solid rgba(255,255,255,0.08);}
+.subsubcat-row{padding:8px 0; border-top:1px dashed rgba(255,255,255,0.06);}
+.subsubcat-row:first-of-type{border-top:none; padding-top:0;}
+.subsubcat-top{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+.subsubcat-name{flex:1; font-size:12.5px; font-weight:600; color:var(--muted);}
+
 /* ---------- TOASTS ---------- */
 #toast-zone{position:fixed; top:78px; left:50%; transform:translateX(-50%); z-index:100; display:flex; flex-direction:column; gap:10px; align-items:center;}
 .toast{
