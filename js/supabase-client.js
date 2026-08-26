@@ -88,3 +88,36 @@ function scheduleSave(getStateFn, delay = 1000) {
     saveState(getStateFn());
   }, delay);
 }
+
+// ============================================================
+// Compte (lien magique par e-mail) — pour retrouver la même to-do
+// sur plusieurs navigateurs/appareils, au lieu de rester coincé sur
+// la session anonyme propre à chaque navigateur.
+// ============================================================
+
+// Transforme la session anonyme courante en compte permanent lié à cet e-mail,
+// SANS changer d'identifiant utilisateur : la to-do déjà sauvegardée sur ce
+// navigateur reste donc associée au compte. À utiliser une seule fois, sur le
+// navigateur qui a déjà la "vraie" to-do.
+async function linkEmailToCurrentAccount(email) {
+  if (!supabaseReady) return { error: new Error('Supabase non connecté') };
+  return await supabaseClient.auth.updateUser(
+    { email },
+    { emailRedirectTo: window.location.origin + window.location.pathname }
+  );
+}
+
+// Envoie un lien de connexion pour rejoindre un compte déjà existant (créé via
+// linkEmailToCurrentAccount ailleurs). À utiliser sur les autres navigateurs/appareils.
+async function signInWithEmail(email) {
+  if (!supabaseReady) return { error: new Error('Supabase non connecté') };
+  return await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  });
+}
+
+async function signOutAccount() {
+  if (!supabaseReady) return;
+  await supabaseClient.auth.signOut();
+}

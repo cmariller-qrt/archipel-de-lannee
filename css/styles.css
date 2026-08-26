@@ -44,6 +44,35 @@ body{
 }
 .badge-count:hover{background:rgba(255,255,255,0.12);}
 
+.account-widget{position:relative;}
+.account-btn{
+  display:flex; align-items:center; gap:7px; cursor:pointer;
+  padding:8px 14px; border-radius:20px; background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12); font-size:12.5px; font-weight:700;
+  backdrop-filter: blur(4px); color:var(--white); font-family:'Nunito Sans',sans-serif;
+}
+.account-btn:hover{background:rgba(255,255,255,0.12);}
+.account-dropdown{
+  display:none; position:absolute; top:calc(100% + 8px); left:50%; transform:translateX(-50%);
+  z-index:50; width:280px; background:linear-gradient(135deg,#1c2547,#121730);
+  border:1px solid rgba(240,193,92,0.3); border-radius:14px; padding:16px;
+  box-shadow:0 14px 30px rgba(0,0,0,0.5);
+}
+.account-dropdown.open{display:block;}
+.account-dropdown p{font-size:11.5px; color:var(--muted); line-height:1.5; margin:0 0 10px;}
+.account-dropdown input{
+  width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.16);
+  color:var(--white); border-radius:8px; padding:8px 10px; font-size:13px;
+  font-family:'Nunito Sans',sans-serif; margin-bottom:8px;
+}
+.account-dropdown button{
+  width:100%; background:var(--gold); border:none; color:#3a2a08; font-weight:800;
+  font-size:12px; padding:8px 12px; border-radius:8px; cursor:pointer; margin-bottom:6px;
+  font-family:'Nunito Sans',sans-serif;
+}
+.account-dropdown button.secondary{background:rgba(255,255,255,0.08); color:var(--white);}
+.account-dropdown .account-msg{font-size:11.5px; margin-top:2px; color:var(--gold);}
+
 .radial-outer{ max-width:900px; margin:0 auto; padding:10px 16px 40px; position:relative; z-index:2; }
 .radial-container{ position:relative; width:100%; aspect-ratio:1/1; }
 .radial-container svg.branches{position:absolute; inset:0; width:100%; height:100%; z-index:1;}

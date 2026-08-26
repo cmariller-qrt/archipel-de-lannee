@@ -1624,6 +1624,64 @@ function getAppStateSnapshot(){
   return { projects: PROJECTS, notes: notesContent, unlockedAnimals: Array.from(unlockedAnimals) };
 }
 
+/* ============ COMPTE (lien magique par e-mail) ============ */
+// Objectif : par défaut chaque navigateur a sa propre session anonyme (donc sa propre
+// to-do, isolée par origine — localhost ≠ vercel.app). Relier un e-mail permet de
+// retrouver la même to-do partout où on se reconnecte avec ce même e-mail.
+async function renderAccountWidget(){
+  const el = document.getElementById('account-widget');
+  if(!el || !supabaseReady) { if(el) el.innerHTML=''; return; }
+  const { data:{ user } } = await supabaseClient.auth.getUser();
+  const isReal = !!(user && !user.is_anonymous && user.email);
+
+  if(isReal){
+    el.innerHTML = `
+      <button class="account-btn" id="account-btn">✅ ${user.email}</button>
+      <div class="account-dropdown" id="account-dropdown">
+        <p>Connecté(e) avec cet e-mail : ta to-do est la même sur tous les navigateurs et appareils où tu te reconnectes avec cette adresse.</p>
+        <button class="secondary" id="account-signout-btn">Se déconnecter</button>
+      </div>
+    `;
+    document.getElementById('account-signout-btn').addEventListener('click', async ()=>{
+      await signOutAccount();
+      location.reload();
+    });
+  } else {
+    el.innerHTML = `
+      <button class="account-btn" id="account-btn">👤 Invité</button>
+      <div class="account-dropdown" id="account-dropdown">
+        <p><strong>Ta to-do n'est visible que sur ce navigateur.</strong> Relie un e-mail pour la retrouver ailleurs.</p>
+        <input type="email" id="account-email-input" placeholder="ton@email.fr" autocomplete="email">
+        <button id="account-link-btn">1ère fois : créer mon compte ici</button>
+        <button class="secondary" id="account-signin-btn">J'ai déjà un compte : m'y connecter</button>
+        <div class="account-msg" id="account-msg"></div>
+      </div>
+    `;
+    document.getElementById('account-link-btn').addEventListener('click', ()=>handleAccountAction('link'));
+    document.getElementById('account-signin-btn').addEventListener('click', ()=>handleAccountAction('signin'));
+  }
+  document.getElementById('account-btn').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('account-dropdown').classList.toggle('open');
+  });
+}
+document.addEventListener('click', (e)=>{
+  const dropdown = document.getElementById('account-dropdown');
+  const widget = document.getElementById('account-widget');
+  if(dropdown && dropdown.classList.contains('open') && widget && !widget.contains(e.target)){
+    dropdown.classList.remove('open');
+  }
+});
+async function handleAccountAction(kind){
+  const input = document.getElementById('account-email-input');
+  const msg = document.getElementById('account-msg');
+  const email = input.value.trim();
+  if(!email){ msg.textContent = 'Entre un e-mail.'; return; }
+  msg.textContent = 'Envoi en cours…';
+  const { error } = kind==='link' ? await linkEmailToCurrentAccount(email) : await signInWithEmail(email);
+  msg.textContent = error ? ('Erreur : '+error.message) : '📩 Vérifie ta boîte mail et clique le lien pour finaliser.';
+}
+
 /* ============ BLOC-NOTES ============ */
 let notesContent = '';
 let notesSaveTimer = null;
@@ -1659,6 +1717,7 @@ async function initApp(){
     // qu'une modification déclenche la première sauvegarde.
     await saveState(getAppStateSnapshot());
   }
+  renderAccountWidget();
   buildMap();
   checkBadges();
 }

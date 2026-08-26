@@ -132,20 +132,28 @@ Pour avancer vite maintenant, l'option simple suffit largement.
 
 ---
 
-## 6. Étape suivante : vrais comptes utilisateurs (optionnel, plus tard)
+## 6. Retrouver la même to-do sur plusieurs navigateurs/appareils (compte par e-mail)
 
-Aujourd'hui, la connexion est **anonyme automatique** : chaque navigateur a ses propres
-données, sans mot de passe ni email. C'est le plus rapide pour démarrer et tester.
+Par défaut, la connexion est **anonyme automatique** : chaque navigateur (et donc chaque
+origine — `http://localhost:3000` et `https://ton-projet.vercel.app` comptent comme deux
+navigateurs différents même si c'est le même appareil) a sa propre session, donc sa
+propre to-do. C'est pour ça que la to-do de ton localhost et celle de ton site en ligne
+peuvent diverger.
 
-Le jour où tu veux que la même personne retrouve ses données sur plusieurs appareils
-(téléphone + ordinateur), il faudra ajouter un vrai écran de connexion. Supabase propose
-plusieurs méthodes prêtes à l'emploi :
-- **Magic link** (email avec lien de connexion, pas de mot de passe) — la plus simple à
-  ajouter, quelques lignes avec `supabase.auth.signInWithOtp()`.
-- Connexion Google / GitHub (OAuth).
+Un bouton **👤 Invité** en haut à droite de la page permet de relier un e-mail (lien
+magique, sans mot de passe, via `supabase.auth.updateUser()` / `signInWithOtp()`) :
+- Sur le navigateur qui a **déjà ta vraie to-do**, clique dessus puis « 1ère fois : créer
+  mon compte ici ». Tu gardes toutes tes données actuelles, elles sont juste rattachées à
+  cet e-mail.
+- Sur tes **autres** navigateurs/appareils, utilise « J'ai déjà un compte : m'y
+  connecter » avec le **même e-mail** — tu rejoins alors ce même compte (et donc la même
+  to-do), au lieu de rester sur une session anonyme séparée.
 
-On pourra faire cette étape ensemble quand tu seras prêt — c'est un ajout, pas une
-réécriture de ce qui existe déjà.
+**Étape unique à faire toi-même dans le dashboard Supabase** (impossible à faire depuis le
+code avec la clé publique) : **Authentication > URL Configuration**, ajoute dans
+*Redirect URLs* chaque origine où l'app tourne, par ex. `http://localhost:3000/*` et
+`https://ton-projet.vercel.app/*`. Sans ça, le clic sur le lien reçu par e-mail peut
+rediriger vers la mauvaise adresse (ou une erreur).
 
 ---
 
@@ -183,6 +191,13 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
   Correctif : sur un navigateur qui n'a encore aucune donnée en base, la to-do actuellement
   affichée est désormais poussée vers Supabase dès la connexion, au lieu d'attendre la
   première modification (`initApp` dans `app.js`).
+- **Compte par e-mail (lien magique)** : la to-do de `localhost` et celle du site
+  déployé sur Vercel étaient différentes car la connexion anonyme est isolée par origine
+  (localhost ≠ vercel.app = deux sessions séparées). Ajout d'un bouton compte (« 👤
+  Invité ») en haut à droite pour relier un e-mail à la session courante ou se connecter
+  à un compte déjà relié ailleurs, afin de retrouver la même to-do partout. Voir
+  README section 6 pour l'étape de configuration à faire dans le dashboard Supabase
+  (Redirect URLs).
 
 ### 2026-08-25
 
