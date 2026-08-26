@@ -178,6 +178,11 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
   latéral d'une île (clic sur une île du mois) permet aussi de faire évoluer leur statut.
 - **Renommer projets / sous-catégories / sous-sous-catégories** : un bouton ✎ à côté de
   chaque nom permet de le modifier (dans l'onglet « To-do complète »).
+- **Sauvegarde immédiate à la première connexion Supabase** : vérification que le projet
+  Supabase (table `app_state`, RLS, connexion anonyme) fonctionne bien de bout en bout.
+  Correctif : sur un navigateur qui n'a encore aucune donnée en base, la to-do actuellement
+  affichée est désormais poussée vers Supabase dès la connexion, au lieu d'attendre la
+  première modification (`initApp` dans `app.js`).
 
 ### 2026-08-25
 

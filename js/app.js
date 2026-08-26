@@ -1653,6 +1653,11 @@ async function initApp(){
     if(Array.isArray(saved.unlockedAnimals)){
       unlockedAnimals = new Set(saved.unlockedAnimals);
     }
+  } else if(supabaseReady){
+    // Première connexion sur ce navigateur : rien à charger depuis Supabase, mais on
+    // pousse tout de suite la to-do actuelle (celle affichée à l'écran) au lieu d'attendre
+    // qu'une modification déclenche la première sauvegarde.
+    await saveState(getAppStateSnapshot());
   }
   buildMap();
   checkBadges();
