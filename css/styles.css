@@ -73,6 +73,22 @@ body{
 .account-dropdown button.secondary{background:rgba(255,255,255,0.08); color:var(--white);}
 .account-dropdown .account-msg{font-size:11.5px; margin-top:2px; color:var(--gold);}
 
+.activity-section{ max-width:900px; margin:0 auto; padding:14px 16px 0; position:relative; z-index:2; }
+.activity-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+.activity-head h2{margin:0; font-size:16px;}
+.activity-count{font-size:12.5px; color:var(--muted);}
+.activity-subtitle{font-size:11.5px; color:var(--muted); margin:2px 0 10px;}
+.activity-bar{display:flex; flex-wrap:wrap; gap:4px;}
+.activity-dot{
+  width:13px; height:13px; border-radius:4px; flex-shrink:0;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+}
+.activity-dot.active{background:var(--gold); border-color:var(--gold); box-shadow:0 0 6px rgba(240,193,92,0.5);}
+.activity-dot.missed{background:rgba(239,123,106,0.16); border-color:rgba(239,123,106,0.3);}
+.activity-dot.current{border-color:var(--gold); border-width:2px; animation:activityPulse 1.8s ease-in-out infinite;}
+.activity-dot.future{opacity:0.5;}
+@keyframes activityPulse{0%,100%{box-shadow:0 0 0 rgba(240,193,92,0.5);} 50%{box-shadow:0 0 5px rgba(240,193,92,0.7);}}
+
 .radial-outer{ max-width:900px; margin:0 auto; padding:10px 16px 40px; position:relative; z-index:2; }
 .radial-container{ position:relative; width:100%; aspect-ratio:1/1; }
 .radial-container svg.branches{position:absolute; inset:0; width:100%; height:100%; z-index:1;}

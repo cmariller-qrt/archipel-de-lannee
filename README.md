@@ -198,6 +198,57 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
   à un compte déjà relié ailleurs, afin de retrouver la même to-do partout. Voir
   README section 6 pour l'étape de configuration à faire dans le dashboard Supabase
   (Redirect URLs).
+- **Collection d'animaux — action de déblocage affichée** : la légende qui indiquait
+  auparavant l'action à accomplir uniquement sous les animaux encore verrouillés
+  s'affiche désormais aussi sous les animaux déjà débloqués (quelle action a permis de
+  les débloquer).
+- **Réordonner les sous-catégories dans un projet** : boutons ▲▼ à côté de chaque
+  sous-catégorie (onglet « To-do complète ») pour changer sa position dans la liste du
+  projet (`moveSub` dans `app.js`).
+
+### 2026-08-27
+
+- **Mois sans projet = 0 % et île cachée** : un mois sans aucun projet affichait
+  auparavant 100 % (« libre ») et son île restait visible/débloquée par défaut, y compris
+  pour un mois passé. Il affiche désormais 0 % et son île reste cachée sous les nuages
+  (comme un mois futur non commencé) tant qu'aucun projet n'y a été ajouté
+  (`monthStats` / `isMonthUnlocked` dans `app.js`, `monthPct` dans l'onglet « To-do
+  complète »).
+- **Correctif : badges débloqués à tort** (ex. le Renard des Frimas alors qu'aucune île
+  n'est débloquée). Deux causes : `CURRENT_MONTH` était figé sur août (démo) au lieu du
+  mois réel, ce qui pouvait faire compter des îles comme « déjà découvertes » sans
+  action ; et `checkBadges()` n'ajoutait des badges qu'il ne les retirait jamais, donc un
+  badge débloqué à tort (à cause de ce ou d'un autre bug passé) restait affiché pour
+  toujours même une fois la condition redevenue fausse. `CURRENT_MONTH` se base
+  maintenant sur la date réelle, et `checkBadges()` réévalue chaque badge à chaque appel
+  (retire ceux qui ne sont plus valides) — la correction s'applique automatiquement dès
+  le prochain chargement de l'app.
+- **Correctif (suite) : « île découverte » ne correspondait pas à ce qui s'affiche
+  visuellement.** Un mois passé/courant avec un projet à 0% comptait comme « découvert »
+  pour les badges (`islandsDiscovered`), alors que visuellement son île reste
+  entièrement sous les nuages (le brouillard dépend du %, pas du fait que le mois soit
+  passé). `isMonthUnlocked` exige désormais une vraie progression (`pct>0`) pour tous les
+  mois, passés, courant ou futurs — plus de passe-droit pour les mois déjà entamés sans
+  rien de fait. Une île à 0% reste donc gérable via l'onglet « To-do complète », mais
+  n'est plus cliquable depuis la carte ni comptée comme découverte tant qu'aucune
+  sous-catégorie n'a réellement avancé.
+- **Correctif (suite et fin) : les badges liés aux îles comptaient une île comme
+  « découverte » dès le premier pourcent de progression, pas à 100% comme prévu.**
+  `isMonthFullyDone()` existait déjà dans le code (exactement pour ce calcul) mais
+  n'était appelée nulle part : `islandsDiscovered` utilisait par erreur
+  `isMonthUnlocked()` (qui ne demande qu'un peu de progression, pour le brouillard
+  progressif de la carte). `islandsDiscovered` et `monthsDone` utilisent désormais tous
+  les deux `isMonthFullyDone()` — une île ne compte pour les badges que si son mois est
+  entièrement terminé (100%, plus aucun nuage).
+- **Barre de régularité (52 semaines)** : nouvelle section au-dessus de l'archipel, avec
+  un point par semaine de l'année (52 au total). Chaque semaine où au moins une action
+  compte (mise à jour d'un statut, ajout d'un projet/sous-catégorie/sous-sous-catégorie,
+  ajout d'un commentaire) s'allume en or ; une semaine passée sans action reste marquée
+  (`missed`), la semaine en cours pulse, les semaines futures restent estompées.
+  Fonctionne aussi depuis l'onglet « To-do complète » (le flag `markActive` est propagé
+  au parent via `postMessage`, uniquement pour les actions qui comptent — pas pour
+  supprimer/renommer/déplacer/archiver). Sauvegardé dans Supabase comme le reste de l'état
+  (`activityWeeks` dans `getAppStateSnapshot`).
 
 ### 2026-08-25
 

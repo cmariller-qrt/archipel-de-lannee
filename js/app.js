@@ -178,7 +178,7 @@ const ANIMAL_IMAGES = [
   { name: `Rennes de Noël`, src: 'assets/animals/11_rennes_noel.png' }
 ];
 
-const CURRENT_MONTH = 7; // Août (démo)
+const CURRENT_MONTH = new Date().getMonth(); // 0=janvier … 11=décembre
 
 let PROJECTS = [
   {id:'p1', month:0, name:'Refonte site vitrine', color:'#f0c15c', subs:[
@@ -252,7 +252,7 @@ function projectsForMonth(m){ return PROJECTS.filter(p=>p.month===m && !p.archiv
 function monthStats(m){
   const projs = projectsForMonth(m);
   const subs = projs.flatMap(effectiveSubs);
-  const pct = subs.length ? Math.round(subs.reduce((a,s)=>a+subPercent(s),0)/subs.length) : 100;
+  const pct = subs.length ? Math.round(subs.reduce((a,s)=>a+subPercent(s),0)/subs.length) : 0;
   const doneCount = subs.filter(subIsDone).length;
   return {total:subs.length, doneCount, pct};
 }
@@ -261,17 +261,17 @@ function globalStats(){
   const allSubs = activeProjects.flatMap(effectiveSubs);
   const subsDone = allSubs.filter(subIsDone).length;
   const projectsDone = activeProjects.filter(p=>p.subs.length>0 && p.subs.every(subIsDone)).length;
-  const monthsDone = MONTHS.filter(m=>{
-    const subs = projectsForMonth(m.id).flatMap(effectiveSubs);
-    return subs.length>0 && subs.every(subIsDone);
-  }).length;
+  const monthsDone = MONTHS.filter(m=>isMonthFullyDone(m.id)).length;
   const yearPct = allSubs.length ? Math.round(allSubs.reduce((a,s)=>a+subPercent(s),0)/allSubs.length) : 0;
   // Formule volontairement plus lente : progresser sur l'année entière doit être nécessaire
   // pour atteindre les niveaux élevés, pas seulement quelques mois bien avancés.
   const xp = Math.round(allSubs.reduce((sum,s)=>sum+subPercent(s)/100*12,0)) + projectsDone*25 + monthsDone*40;
   const level = levelFromXp(xp);
   const xpToNext = xpForNextLevel(level);
-  const islandsDiscovered = MONTHS.filter(m=>isMonthUnlocked(m.id)).length;
+  // "Découverte" (pour les badges) = île entièrement révélée (100%, plus aucun nuage),
+  // pas seulement un peu de progression (voir isMonthUnlocked, plus permissif, qui gère
+  // le brouillard progressif et le clic sur la carte).
+  const islandsDiscovered = MONTHS.filter(m=>isMonthFullyDone(m.id)).length;
   return {subsDone, projectsDone, monthsDone, yearPct, xp, level, xpToNext, islandsDiscovered, currentMonth:CURRENT_MONTH, noLateThisMonth:true};
 }
 const LEVEL_NAMES = ['Explorateur','Aventurier','Stratège','Bâtisseur','Vétéran','Maître du temps',"Sage de l'Archipel",'Légende'];
@@ -573,9 +573,12 @@ function islandSVG(monthId, seasonKey, invite){
 }
 
 function isMonthUnlocked(monthId){
-  if(monthId <= CURRENT_MONTH) return true;
+  // "Découverte" = de la vraie progression a été faite (pct>0), qu'il s'agisse d'un mois
+  // passé, courant ou futur. Un projet qui existe mais reste à 0% ne compte pas : sinon
+  // l'île resterait visuellement toujours couverte de nuages (0% = brouillard complet)
+  // tout en étant comptée comme "découverte" pour les badges — incohérent.
   const st = monthStats(monthId);
-  return st.total>0 && st.pct>0; // de l'avance a été prise sur ce mois futur
+  return st.total>0 && st.pct>0;
 }
 
 function cloudPuffsHtml(pct, locked){
@@ -662,7 +665,7 @@ function buildMap(){
         <div class="island-check">✓</div>
         <div class="cloud-layer">${puffsHtml}</div>
       </div>
-      <div class="island-sub">${locked ? '—' : (st.total>0 ? st.pct+'%' : 'libre')}</div>
+      <div class="island-sub">${locked ? '—' : st.pct+'%'}</div>
     `;
     if(!locked){
       node.addEventListener('click', ()=>{
@@ -1000,6 +1003,7 @@ function updateSubStatus(projectId, subId, newStatus){
   refreshAll();
   openMonth(project.month);
   checkBadges();
+  markWeekActive();
 }
 function updateSubPercent(projectId, subId, value){
   const project = PROJECTS.find(p=>p.id===projectId);
@@ -1009,6 +1013,7 @@ function updateSubPercent(projectId, subId, value){
   refreshAll();
   openMonth(project.month);
   checkBadges();
+  markWeekActive();
 }
 function updateSubSubStatus(projectId, subId, subsubId, newStatus){
   const project = PROJECTS.find(p=>p.id===projectId);
@@ -1020,6 +1025,7 @@ function updateSubSubStatus(projectId, subId, subsubId, newStatus){
   refreshAll();
   openMonth(project.month);
   checkBadges();
+  markWeekActive();
 }
 function updateSubSubPercent(projectId, subId, subsubId, value){
   const project = PROJECTS.find(p=>p.id===projectId);
@@ -1029,6 +1035,7 @@ function updateSubSubPercent(projectId, subId, subsubId, value){
   checkMilestones(project);
   refreshAll();
   openMonth(project.month);
+  markWeekActive();
   checkBadges();
 }
 function checkMilestones(project){
@@ -1049,17 +1056,27 @@ function showToast(emoji, text){
   setTimeout(()=>t.remove(), 3000);
 }
 let unlockedAnimals = new Set();
+// Réévalue chaque badge à chaque appel (pas seulement "ajouter si nouvellement gagné") :
+// un badge dont la condition n'est plus vraie (ex : projet supprimé, correctif d'une
+// règle de calcul) est retiré au lieu de rester débloqué à tort indéfiniment.
 function checkBadges(){
   const s = globalStats();
+  let changed = false;
   ANIMAL_BADGES.forEach((b, idx)=>{
-    if(!unlockedAnimals.has(idx) && b.test(s)){
+    const earned = b.test(s);
+    if(earned && !unlockedAnimals.has(idx)){
       unlockedAnimals.add(idx);
+      changed = true;
       const animal = ANIMAL_IMAGES[b.animalIndex];
       setTimeout(()=>showToast('🐾', `Nouveau compagnon débloqué : ${animal.name}`), 900);
+    } else if(!earned && unlockedAnimals.has(idx)){
+      unlockedAnimals.delete(idx);
+      changed = true;
     }
   });
   renderBadgeCounts();
   renderBadgesSection();
+  if(changed) scheduleSave(getAppStateSnapshot);
 }
 function renderBadgeCounts(){
   const count = unlockedAnimals.size;
@@ -1080,12 +1097,60 @@ function renderBadgesSection(){
         ${!unlocked ? '<div class="badge-tile-lock">🔒</div>' : ''}
       </div>
       <div class="name">${unlocked ? animal.name : '???'}</div>
-      <div class="month-tag">${unlocked ? '' : b.desc}</div>
+      <div class="month-tag">${b.desc}</div>
     `;
     grid.appendChild(tile);
   });
 }
 function refreshAll(){ buildMap(); renderBadgeCounts(); scheduleSave(getAppStateSnapshot); }
+
+/* ============ RÉGULARITÉ : une action par semaine (52 points) ============ */
+// Récompense l'utilisation régulière de l'outil (au moins une action par semaine),
+// indépendamment de l'avancement des projets eux-mêmes.
+let activityWeeks = new Set(); // clés "AAAA-wN" (N de 0 à 51)
+function weekIndexOfYear(date){
+  const start = new Date(date.getFullYear(), 0, 1);
+  const diffDays = Math.floor((date - start) / 86400000);
+  return Math.min(51, Math.floor(diffDays/7));
+}
+function currentWeekKey(){
+  const now = new Date();
+  return now.getFullYear()+'-w'+weekIndexOfYear(now);
+}
+// Appelée à chaque action qui compte comme "utilisation de l'outil" : mise à jour d'un
+// statut, ajout d'un projet/sous-catégorie/sous-sous-catégorie, ajout d'un commentaire.
+function markWeekActive(){
+  const key = currentWeekKey();
+  if(activityWeeks.has(key)) return;
+  activityWeeks.add(key);
+  renderActivityBar();
+  scheduleSave(getAppStateSnapshot);
+}
+function renderActivityBar(){
+  const bar = document.getElementById('activity-bar');
+  const countEl = document.getElementById('activity-count');
+  if(!bar) return;
+  const now = new Date();
+  const year = now.getFullYear();
+  const currentIdx = weekIndexOfYear(now);
+  let doneCount = 0;
+  let html = '';
+  for(let w=0; w<52; w++){
+    const active = activityWeeks.has(year+'-w'+w);
+    if(active) doneCount++;
+    const isCurrent = w===currentIdx;
+    const isPast = w<currentIdx;
+    let cls = 'activity-dot';
+    let title;
+    if(active){ cls += ' active'; title = `Semaine ${w+1} — action faite ✓`; }
+    else if(isCurrent){ cls += ' current'; title = `Semaine ${w+1} — en cours, pas encore d'action`; }
+    else if(isPast){ cls += ' missed'; title = `Semaine ${w+1} — manquée`; }
+    else { cls += ' future'; title = `Semaine ${w+1} — à venir`; }
+    html += `<div class="${cls}" title="${title}"></div>`;
+  }
+  bar.innerHTML = html;
+  if(countEl) countEl.textContent = doneCount+' / 52 semaines';
+}
 
 document.getElementById('badge-count-btn').addEventListener('click', ()=>{
   document.querySelector('.badges-section').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1155,6 +1220,9 @@ function openFullTodoTab(){
 '.percent-live{font-size:11px; color:var(--muted); font-family:\'JetBrains Mono\',monospace; width:32px; text-align:right;}',
 '.rename-btn{background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:2px 6px; border-radius:6px;}',
 '.rename-btn:hover{color:var(--gold); background:rgba(240,193,92,0.12);}',
+'.move-btn{background:none; border:none; color:var(--muted); cursor:pointer; font-size:11px; padding:2px 5px; border-radius:6px; line-height:1;}',
+'.move-btn:hover:not(:disabled){color:var(--gold); background:rgba(240,193,92,0.12);}',
+'.move-btn:disabled{opacity:0.2; cursor:default;}',
 '.subsubs-wrap{margin-top:6px; padding-left:14px; border-left:2px solid rgba(255,255,255,0.08);}',
 '.subsubcat-row{padding:7px 0; border-top:1px dashed rgba(255,255,255,0.06);}',
 '.subsubcat-row:first-of-type{border-top:none;}',
@@ -1233,7 +1301,7 @@ function openFullTodoTab(){
 '  var projs = projectsForMonth(m);',
 '  var subs = [];',
 '  projs.forEach(function(p){ subs = subs.concat(effectiveSubs(p)); });',
-'  if(subs.length===0) return 100;',
+'  if(subs.length===0) return 0;',
 '  var sum = 0; subs.forEach(function(s){ sum += subPercent(s); });',
 '  return Math.round(sum/subs.length);',
 '}',
@@ -1258,9 +1326,9 @@ function openFullTodoTab(){
 '  }).length;',
 '  return Math.round(xp) + projectsDone*60 + monthsDone*100;',
 '}',
-'function sync(){',
+'function sync(markActive){',
 '  var target = window.opener || (window.parent !== window ? window.parent : null);',
-'  if(target){ target.postMessage({type:"archipel-sync", projects: DATA}, "*"); }',
+'  if(target){ target.postMessage({type:"archipel-sync", projects: DATA, markActive: !!markActive}, "*"); }',
 '}',
 '',
 'function setStatus(projId, subId, val){',
@@ -1268,7 +1336,7 @@ function openFullTodoTab(){
 '  var s = p.subs.find(function(x){return x.id===subId;});',
 '  s.status = val;',
 '  if(val==="in_progress" && s.percent===undefined) s.percent = 50;',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function setPercentLive(subId, val){',
 '  var el = document.getElementById("live-"+subId);',
@@ -1278,7 +1346,7 @@ function openFullTodoTab(){
 '  var p = DATA.find(function(x){return x.id===projId;});',
 '  var s = p.subs.find(function(x){return x.id===subId;});',
 '  s.percent = parseInt(val,10);',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function toggleForm(id){',
 '  var el = document.getElementById(id);',
@@ -1305,7 +1373,7 @@ function openFullTodoTab(){
 '  var dateStr = now.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"}) + " à " + now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});',
 '  s.comments.push({text: text, date: dateStr});',
 '  openComments[subId] = true;',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function deleteComment(projId, subId, idx){',
 '  var p = DATA.find(function(x){return x.id===projId;});',
@@ -1324,7 +1392,7 @@ function openFullTodoTab(){
 '  var color = SEASONS[season].color;',
 '  DATA.push({id:newId("p"), month:monthId, name:name, color:color, subs:[]});',
 '  input.value = "";',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function deleteProject(projId){',
 '  DATA = DATA.filter(function(p){return p.id!==projId;});',
@@ -1389,11 +1457,19 @@ function openFullTodoTab(){
 '  var p = DATA.find(function(x){return x.id===projId;});',
 '  p.subs.push({id:newId("s"), name:name, date:date, status:"not_started"});',
 '  nameInput.value=""; dateInput.value="";',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function deleteSub(projId, subId){',
 '  var p = DATA.find(function(x){return x.id===projId;});',
 '  p.subs = p.subs.filter(function(s){return s.id!==subId;});',
+'  render(); sync();',
+'}',
+'function moveSub(projId, subId, dir){',
+'  var p = DATA.find(function(x){return x.id===projId;});',
+'  var idx = p.subs.findIndex(function(s){return s.id===subId;});',
+'  var target = idx + dir;',
+'  if(idx===-1 || target<0 || target>=p.subs.length) return;',
+'  var tmp = p.subs[target]; p.subs[target] = p.subs[idx]; p.subs[idx] = tmp;',
 '  render(); sync();',
 '}',
 'function addSubsub(projId, subId){',
@@ -1407,7 +1483,7 @@ function openFullTodoTab(){
 '  if(!s.subsubs) s.subsubs = [];',
 '  s.subsubs.push({id:newId("ss"), name:name, date:date, status:"not_started"});',
 '  nameInput.value=""; dateInput.value="";',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function deleteSubsub(projId, subId, subsubId){',
 '  var p = DATA.find(function(x){return x.id===projId;});',
@@ -1421,7 +1497,7 @@ function openFullTodoTab(){
 '  var ss = s.subsubs.find(function(x){return x.id===subsubId;});',
 '  ss.status = val;',
 '  if(val==="in_progress" && ss.percent===undefined) ss.percent = 50;',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function setSubsubPercentLive(subsubId, val){',
 '  var el = document.getElementById("live-ss-"+subsubId);',
@@ -1432,7 +1508,7 @@ function openFullTodoTab(){
 '  var s = p.subs.find(function(x){return x.id===subId;});',
 '  var ss = s.subsubs.find(function(x){return x.id===subsubId;});',
 '  ss.percent = parseInt(val,10);',
-'  render(); sync();',
+'  render(); sync(true);',
 '}',
 'function renameProject(projId){',
 '  var p = DATA.find(function(x){return x.id===projId;});',
@@ -1486,12 +1562,12 @@ function openFullTodoTab(){
 '    projs.forEach(function(p){',
 '      out.push("<div class=\\"project\\" draggable=\\"true\\" ondragstart=\\"onProjectDragStart(event,\'"+p.id+"\')\\" ondragend=\\"onProjectDragEnd(event)\\">");',
 '      out.push("<div class=\\"project-head\\"><span class=\\"drag-handle\\" title=\\"Glisser pour changer de mois\\">⠿</span><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\">"+p.name+"</span><button class=\\"rename-btn\\" onclick=\\"renameProject(\'"+p.id+"\')\\" title=\\"Renommer\\">✎</button><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"archive-btn\\" onclick=\\"archiveProject(\'"+p.id+"\')\\" title=\\"Archiver ce projet (retiré de la to-do et de la découverte des îles, gardé en historique)\\">📦</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
-'      p.subs.forEach(function(s){',
+'      p.subs.forEach(function(s, subIdx){',
 '        var pct = subPercent(s);',
 '        var hasChildren = s.subsubs && s.subsubs.length>0;',
 '        var color = hasChildren ? pctColorAgg(pct) : STATUS_META[s.status].color;',
 '        out.push("<div class=\\"subcat-row\\">");',
-'        out.push("<div class=\\"subcat-top\\"><div class=\\"subcat-name\\">"+s.name+"</div><div class=\\"subcat-date\\">"+s.date+"</div><div class=\\"subcat-pct\\" style=\\"background:"+color+"22;color:"+color+"\\">"+pct+"%</div><button class=\\"rename-btn\\" onclick=\\"renameSub(\'"+p.id+"\',\'"+s.id+"\')\\" title=\\"Renommer\\">✎</button><button class=\\"del-btn\\" onclick=\\"deleteSub(\'"+p.id+"\',\'"+s.id+"\')\\" title=\\"Supprimer\\">✕</button></div>");',
+'        out.push("<div class=\\"subcat-top\\"><div class=\\"subcat-name\\">"+s.name+"</div><div class=\\"subcat-date\\">"+s.date+"</div><div class=\\"subcat-pct\\" style=\\"background:"+color+"22;color:"+color+"\\">"+pct+"%</div><button class=\\"move-btn\\" onclick=\\"moveSub(\'"+p.id+"\',\'"+s.id+"\',-1)\\" title=\\"Monter\\""+(subIdx===0?" disabled":"")+">▲</button><button class=\\"move-btn\\" onclick=\\"moveSub(\'"+p.id+"\',\'"+s.id+"\',1)\\" title=\\"Descendre\\""+(subIdx===p.subs.length-1?" disabled":"")+">▼</button><button class=\\"rename-btn\\" onclick=\\"renameSub(\'"+p.id+"\',\'"+s.id+"\')\\" title=\\"Renommer\\">✎</button><button class=\\"del-btn\\" onclick=\\"deleteSub(\'"+p.id+"\',\'"+s.id+"\')\\" title=\\"Supprimer\\">✕</button></div>");',
 '        if(hasChildren){',
 '          out.push("<div class=\\"subsubs-wrap\\">");',
 '          s.subsubs.forEach(function(ss){',
@@ -1612,6 +1688,7 @@ function openFullTodoOverlay(html){
 window.addEventListener('message', function(e){
   if(e.data && e.data.type==='archipel-sync' && Array.isArray(e.data.projects)){
     PROJECTS = e.data.projects;
+    if(e.data.markActive) markWeekActive();
     refreshAll();
     checkBadges();
     showToast('🔄', "To-do mise à jour depuis l'autre onglet");
@@ -1621,7 +1698,7 @@ window.addEventListener('message', function(e){
 
 /* ============ PERSISTANCE (Supabase) ============ */
 function getAppStateSnapshot(){
-  return { projects: PROJECTS, notes: notesContent, unlockedAnimals: Array.from(unlockedAnimals) };
+  return { projects: PROJECTS, notes: notesContent, unlockedAnimals: Array.from(unlockedAnimals), activityWeeks: Array.from(activityWeeks) };
 }
 
 /* ============ COMPTE (lien magique par e-mail) ============ */
@@ -1711,6 +1788,9 @@ async function initApp(){
     if(Array.isArray(saved.unlockedAnimals)){
       unlockedAnimals = new Set(saved.unlockedAnimals);
     }
+    if(Array.isArray(saved.activityWeeks)){
+      activityWeeks = new Set(saved.activityWeeks);
+    }
   } else if(supabaseReady){
     // Première connexion sur ce navigateur : rien à charger depuis Supabase, mais on
     // pousse tout de suite la to-do actuelle (celle affichée à l'écran) au lieu d'attendre
@@ -1720,5 +1800,6 @@ async function initApp(){
   renderAccountWidget();
   buildMap();
   checkBadges();
+  renderActivityBar();
 }
 initApp();
