@@ -1116,6 +1116,11 @@ const STONE_PLACEHOLDER = {name:'Élément à venir', src:'assets/stones/00_init
 const STONE_ELEMENTS = new Array(13);
 STONE_ELEMENTS[0] = {name:'Initial', src:'assets/stones/00_initial_stone.png', srcActive:'assets/stones/00_initial_stone_y.png'};
 STONE_ELEMENTS[1] = {name:'Neige',   src:'assets/stones/01_neige.png',         srcActive:'assets/stones/01_neige_y.png'};
+STONE_ELEMENTS[2] = {name:'Givre',   src:'assets/stones/02_givre.png',         srcActive:'assets/stones/02_givre_y.png'};
+STONE_ELEMENTS[3] = {name:'Vent',    src:'assets/stones/03_vent.png',          srcActive:'assets/stones/03_vent_y.png'};
+STONE_ELEMENTS[4] = {name:'Feuille', src:'assets/stones/04_feuille.png',       srcActive:'assets/stones/04_feuille_y.png'};
+STONE_ELEMENTS[5] = {name:'Fleurs',  src:'assets/stones/05_fleurs.png',        srcActive:'assets/stones/05_fleurs_y.png'};
+STONE_ELEMENTS[8] = {name:'Feu',     src:'assets/stones/08_feu.png',           srcActive:'assets/stones/08_feu_y.png'};
 STONE_ELEMENTS[9] = {name:'Ombre',   src:'assets/stones/10_ombre.png',         srcActive:'assets/stones/10_ombre_y.png'};
 let activityWeeks = new Set(); // clés "AAAA-wN" (N de 0 à 51)
 function weekIndexOfYear(date){
