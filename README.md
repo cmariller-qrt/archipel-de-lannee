@@ -277,3 +277,37 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
 - Rappel des contraintes pour remplacer une image d'île : ratio **4:3**, résolution
   conseillée **1600×1200 px minimum** (2000×1500 px pour un rendu net avec le zoom),
   PNG à fond transparent.
+
+### 2026-08-28
+
+- **Régularité — collection de pierres** : les 52 puces hebdomadaires deviennent des
+  pierres illustrées (`assets/stones/`). Une pierre validée (action faite dans la
+  semaine) affiche son image avec halo doré, sinon son image « au repos ». Les 52
+  semaines sont groupées par 4 ; chaque groupe débloque au fil du temps un nouvel
+  élément (nouvelle illustration de pierre) indépendamment de la validation — un seul
+  élément pour l'instant (« Initial »), les 12 autres viendront compléter
+  `STONE_ELEMENTS` dans `app.js`. L'affichage reste une seule barre continue comme avant.
+- **Pierres — agrandissement** : taille des pierres de la barre de régularité augmentée
+  (26px → 34px) pour mieux voir le détail des illustrations.
+- **Menu sous le titre + vue « Collections »** : trois boutons (🗂️ Collections,
+  🏆 Niveau, 📋 To-do complète) ajoutés sous le bandeau du haut. « Collections » ouvre un
+  panneau avec un onglet par collection (🦊 Animaux, 💎 Pierres) montrant chaque
+  élément en plus grand qu'auparavant ; cliquer sur une image débloquée l'agrandit
+  encore dans une vue plein écran (loupe) pour bien voir les détails
+  (`openCollectionsPanel`, `openLightbox` dans `app.js`). Le menu est positionné en
+  haut à gauche, directement sous le titre (`.topbar-left` dans `styles.css`).
+- **Pierres — taille ajustée** : 34px jugé trop grand, ramené à 22px.
+- **Menu du haut empilé verticalement** : les 3 boutons (Collections, Niveau, To-do
+  complète) s'affichent désormais les uns en dessous des autres au lieu d'une ligne.
+- **Section renommée « Tes pierres d'éléments »** (au lieu de « Régularité ») et
+  légende remplacée par un lien « ℹ️ En savoir plus » dont le texte explicatif
+  s'affiche au survol (ou au focus clavier) via une infobulle (`.info-tip` dans
+  `styles.css`), au lieu d'être affiché en permanence.
+- **2ᵉ pierre d'élément : Neige** (`assets/stones/01_neige.png` au repos,
+  `01_neige_y.png` validée) ajoutée à `STONE_ELEMENTS` dans `app.js`.
+- **`STONE_ELEMENTS` passe à un tableau à taille fixe (13 positions = 52 semaines / 4)**,
+  chaque pierre étant placée à sa position définitive au lieu de s'ajouter à la suite.
+  Les positions pas encore reçues affichent un repère « Élément à venir »
+  (`STONE_PLACEHOLDER`) tant qu'elles ne sont pas remplies.
+- **10ᵉ pierre d'élément : Ombre** (`assets/stones/10_ombre.png` au repos,
+  `10_ombre_y.png` découverte) placée en position 10 dans `STONE_ELEMENTS`.

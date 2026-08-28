@@ -11,17 +11,28 @@
 <div class="stars"></div>
 
 <div class="topbar">
-  <div class="brand title-font">🧭 ARCHIPEL DE L'ANNÉE</div>
+  <div class="topbar-left">
+    <div class="brand title-font">🧭 ARCHIPEL DE L'ANNÉE</div>
+    <div class="main-menu">
+      <button class="menu-btn" id="menu-collections-btn">🗂️ Collections</button>
+      <button class="menu-btn" id="menu-level-btn">🏆 Niveau</button>
+      <button class="menu-btn" id="menu-todo-btn">📋 To-do complète</button>
+    </div>
+  </div>
   <div class="account-widget" id="account-widget"></div>
   <div class="badge-count" id="badge-count-btn">🦊 <span id="badge-count-num">0</span>/12</div>
 </div>
 
 <div class="activity-section">
   <div class="activity-head">
-    <h2 class="title-font">📅 Régularité</h2>
+    <h2 class="title-font">💎 Tes pierres d'éléments</h2>
     <div class="activity-count mono" id="activity-count">0 / 52 semaines</div>
   </div>
-  <div class="activity-subtitle">Au moins une action par semaine (statut, projet, sous-catégorie, commentaire…) pour garder la série.</div>
+  <div class="activity-subtitle">
+    <span class="info-tip" tabindex="0">ℹ️ En savoir plus
+      <span class="info-tip-content">Au moins une action par semaine (statut, projet, sous-catégorie, commentaire…) pour valider une pierre. Un nouvel élément se débloque tous les 4 semaines.</span>
+    </span>
+  </div>
   <div class="activity-bar" id="activity-bar"></div>
 </div>
 
@@ -48,6 +59,12 @@
 <div id="toast-zone"></div>
 <div class="overlay" id="month-overlay"><div class="panel" id="month-panel"></div></div>
 <div class="overlay" id="level-overlay"><div class="panel" id="level-panel"></div></div>
+<div class="overlay" id="collections-overlay"><div class="panel panel-wide" id="collections-panel"></div></div>
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <button class="close-btn lightbox-close" id="lightbox-close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+  <div class="lightbox-caption" id="lightbox-caption"></div>
+</div>
 
 <!-- SDK Supabase (client officiel, via CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

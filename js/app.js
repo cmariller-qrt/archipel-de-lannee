@@ -1104,9 +1104,19 @@ function renderBadgesSection(){
 }
 function refreshAll(){ buildMap(); renderBadgeCounts(); scheduleSave(getAppStateSnapshot); }
 
-/* ============ RÉGULARITÉ : une action par semaine (52 points) ============ */
+/* ============ RÉGULARITÉ : collection de pierres, une par semaine (52) ============ */
 // Récompense l'utilisation régulière de l'outil (au moins une action par semaine),
 // indépendamment de l'avancement des projets eux-mêmes.
+// Les 52 pierres sont groupées par 4 semaines ; chaque groupe débloque un nouvel
+// élément (illustration) au fil du temps, indépendamment de la validation.
+// `src` = pierre "au repos" (non validée), `srcActive` = pierre validée (version éclatante).
+// Tableau à taille fixe (13 = 52 semaines / 4) indexé par position ; les positions pas
+// encore reçues restent vides et retombent sur STONE_PLACEHOLDER (voir plus bas).
+const STONE_PLACEHOLDER = {name:'Élément à venir', src:'assets/stones/00_initial_stone.png', srcActive:'assets/stones/00_initial_stone_y.png'};
+const STONE_ELEMENTS = new Array(13);
+STONE_ELEMENTS[0] = {name:'Initial', src:'assets/stones/00_initial_stone.png', srcActive:'assets/stones/00_initial_stone_y.png'};
+STONE_ELEMENTS[1] = {name:'Neige',   src:'assets/stones/01_neige.png',         srcActive:'assets/stones/01_neige_y.png'};
+STONE_ELEMENTS[9] = {name:'Ombre',   src:'assets/stones/10_ombre.png',         srcActive:'assets/stones/10_ombre_y.png'};
 let activityWeeks = new Set(); // clés "AAAA-wN" (N de 0 à 51)
 function weekIndexOfYear(date){
   const start = new Date(date.getFullYear(), 0, 1);
@@ -1126,6 +1136,9 @@ function markWeekActive(){
   renderActivityBar();
   scheduleSave(getAppStateSnapshot);
 }
+function currentStoneGroup(){
+  return Math.floor(weekIndexOfYear(new Date())/4);
+}
 function renderActivityBar(){
   const bar = document.getElementById('activity-bar');
   const countEl = document.getElementById('activity-count');
@@ -1133,6 +1146,7 @@ function renderActivityBar(){
   const now = new Date();
   const year = now.getFullYear();
   const currentIdx = weekIndexOfYear(now);
+  const currentGroup = currentStoneGroup();
   let doneCount = 0;
   let html = '';
   for(let w=0; w<52; w++){
@@ -1140,13 +1154,18 @@ function renderActivityBar(){
     if(active) doneCount++;
     const isCurrent = w===currentIdx;
     const isPast = w<currentIdx;
+    const group = Math.floor(w/4);
+    const unlocked = group<=currentGroup;
+    const el = STONE_ELEMENTS[group % STONE_ELEMENTS.length] || STONE_PLACEHOLDER;
     let cls = 'activity-dot';
     let title;
-    if(active){ cls += ' active'; title = `Semaine ${w+1} — action faite ✓`; }
-    else if(isCurrent){ cls += ' current'; title = `Semaine ${w+1} — en cours, pas encore d'action`; }
-    else if(isPast){ cls += ' missed'; title = `Semaine ${w+1} — manquée`; }
-    else { cls += ' future'; title = `Semaine ${w+1} — à venir`; }
-    html += `<div class="${cls}" title="${title}"></div>`;
+    if(active){ cls += ' active'; title = `Semaine ${w+1} — pierre de ${el.name} — action faite ✓`; }
+    else if(isCurrent){ cls += ' current'; title = `Semaine ${w+1} — pierre de ${el.name} — en cours, pas encore d'action`; }
+    else if(isPast){ cls += ' missed'; title = `Semaine ${w+1} — pierre de ${el.name} — manquée`; }
+    else { cls += ' future'; title = unlocked ? `Semaine ${w+1} — pierre de ${el.name} — à venir` : `Semaine ${w+1} — élément à débloquer dans ${group*4-currentIdx} semaine(s)`; }
+    if(!unlocked) cls += ' locked';
+    const src = active ? el.srcActive : el.src;
+    html += `<div class="${cls}" title="${title}"><img class="activity-dot-img" src="${src}" alt=""></div>`;
   }
   bar.innerHTML = html;
   if(countEl) countEl.textContent = doneCount+' / 52 semaines';
@@ -1156,6 +1175,87 @@ document.getElementById('badge-count-btn').addEventListener('click', ()=>{
   document.querySelector('.badges-section').scrollIntoView({behavior:'smooth', block:'start'});
 });
 document.getElementById('month-overlay').addEventListener('click', (e)=>{ if(e.target.id==='month-overlay') closeOverlay('month-overlay'); });
+
+/* ============ MENU : COLLECTIONS (vue d'ensemble + agrandissement) ============ */
+let collectionsTab = 'animals';
+function openCollectionsPanel(tab){
+  collectionsTab = tab || collectionsTab;
+  renderCollectionsPanel();
+  document.getElementById('collections-overlay').classList.add('open');
+}
+function switchCollectionsTab(tab){
+  collectionsTab = tab;
+  renderCollectionsPanel();
+}
+function collectionTileHtml(src, name, desc, unlocked){
+  const zoomAttr = unlocked ? ` onclick="openLightbox('${src}', '${name.replace(/'/g,"\\'")}')"` : '';
+  return `
+    <div class="badge-tile ${unlocked?'unlocked':'locked'}">
+      <div class="badge-tile-img-wrap">
+        <img class="badge-tile-img" src="${src}" alt="${name}"${zoomAttr}>
+        ${!unlocked ? '<div class="badge-tile-lock">🔒</div>' : ''}
+      </div>
+      <div class="name">${unlocked ? name : '???'}</div>
+      <div class="month-tag">${desc}</div>
+    </div>
+  `;
+}
+function renderCollectionsPanel(){
+  const panel = document.getElementById('collections-panel');
+  const currentGroup = currentStoneGroup();
+
+  const animalsHtml = ANIMAL_BADGES.map((b, idx)=>{
+    const unlocked = unlockedAnimals.has(idx);
+    const animal = ANIMAL_IMAGES[b.animalIndex];
+    return collectionTileHtml(animal.src, animal.name, b.desc, unlocked);
+  }).join('');
+
+  const stonesHtml = Array.from({length: STONE_ELEMENTS.length}, (_, idx)=>{
+    const el = STONE_ELEMENTS[idx] || STONE_PLACEHOLDER;
+    const unlocked = idx<=currentGroup;
+    const desc = unlocked ? 'Débloquée' : `Se débloque à la semaine ${idx*4+1}`;
+    return collectionTileHtml(unlocked ? el.srcActive : el.src, el.name, desc, unlocked);
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <div class="emoji-big">🗂️</div>
+      <div>
+        <h2 class="title-font">Tes collections</h2>
+        <div class="meta">Clique sur une image débloquée pour l'agrandir</div>
+      </div>
+      <button class="close-btn" onclick="closeOverlay('collections-overlay')">✕</button>
+    </div>
+    <div class="panel-tabs">
+      <button class="panel-tab ${collectionsTab==='animals'?'active':''}" data-tab="animals" onclick="switchCollectionsTab('animals')">🦊 Animaux (${unlockedAnimals.size}/${ANIMAL_BADGES.length})</button>
+      <button class="panel-tab ${collectionsTab==='stones'?'active':''}" data-tab="stones" onclick="switchCollectionsTab('stones')">💎 Pierres (${Math.min(currentGroup+1, STONE_ELEMENTS.length)}/${STONE_ELEMENTS.length})</button>
+    </div>
+    <div class="panel-view ${collectionsTab==='animals'?'active':''}" data-view="animals">
+      <div class="badges-grid">${animalsHtml}</div>
+    </div>
+    <div class="panel-view ${collectionsTab==='stones'?'active':''}" data-view="stones">
+      <div class="badges-grid">${stonesHtml}</div>
+    </div>
+  `;
+}
+document.getElementById('collections-overlay').addEventListener('click', (e)=>{ if(e.target.id==='collections-overlay') closeOverlay('collections-overlay'); });
+
+function openLightbox(src, title){
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox-caption').textContent = title || '';
+  document.getElementById('lightbox-overlay').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox-overlay').classList.remove('open');
+}
+document.getElementById('lightbox-overlay').addEventListener('click', (e)=>{ if(e.target.id==='lightbox-overlay') closeLightbox(); });
+document.getElementById('lightbox-img').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeLightbox(); });
+
+document.getElementById('menu-collections-btn').addEventListener('click', ()=> openCollectionsPanel('animals'));
+document.getElementById('menu-level-btn').addEventListener('click', openLevelDetail);
+document.getElementById('menu-todo-btn').addEventListener('click', ()=>{ showToast('🧭','Ouverture de ta to-do complète…'); openFullTodoTab(); });
 
 /* ============ NOUVEL ONGLET : to-do complète (page de travail interactive) ============ */
 function openFullTodoTab(){
