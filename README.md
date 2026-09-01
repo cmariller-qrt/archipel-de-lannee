@@ -311,3 +311,12 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
   (`STONE_PLACEHOLDER`) tant qu'elles ne sont pas remplies.
 - **10ᵉ pierre d'élément : Ombre** (`assets/stones/10_ombre.png` au repos,
   `10_ombre_y.png` découverte) placée en position 10 dans `STONE_ELEMENTS`.
+
+### 2026-09-01
+
+- **To-do complète — repli automatique des mois à 100 %** : dans l'onglet « To-do
+  complète » (`openFullTodoTab` dans `app.js`), un mois dont tous les projets sont
+  terminés (100 %) se replie désormais automatiquement à l'ouverture ; les mois non
+  terminés restent dépliés. Ce comportement par défaut ne s'applique que tant que
+  l'utilisateur n'a pas manuellement replié/déplié le mois lui-même durant la session
+  (le clic manuel reste prioritaire).
