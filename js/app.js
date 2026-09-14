@@ -1114,14 +1114,19 @@ function refreshAll(){ buildMap(); renderBadgeCounts(); scheduleSave(getAppState
 // encore reçues restent vides et retombent sur STONE_PLACEHOLDER (voir plus bas).
 const STONE_PLACEHOLDER = {name:'Élément à venir', src:'assets/stones/00_initial_stone.png', srcActive:'assets/stones/00_initial_stone_y.png'};
 const STONE_ELEMENTS = new Array(13);
-STONE_ELEMENTS[0] = {name:'Initial', src:'assets/stones/00_initial_stone.png', srcActive:'assets/stones/00_initial_stone_y.png'};
+STONE_ELEMENTS[0] = {name:'Roche',   src:'assets/stones/00_initial_stone.png', srcActive:'assets/stones/00_initial_stone_y.png'};
 STONE_ELEMENTS[1] = {name:'Neige',   src:'assets/stones/01_neige.png',         srcActive:'assets/stones/01_neige_y.png'};
 STONE_ELEMENTS[2] = {name:'Givre',   src:'assets/stones/02_givre.png',         srcActive:'assets/stones/02_givre_y.png'};
 STONE_ELEMENTS[3] = {name:'Vent',    src:'assets/stones/03_vent.png',          srcActive:'assets/stones/03_vent_y.png'};
 STONE_ELEMENTS[4] = {name:'Feuille', src:'assets/stones/04_feuille.png',       srcActive:'assets/stones/04_feuille_y.png'};
 STONE_ELEMENTS[5] = {name:'Fleurs',  src:'assets/stones/05_fleurs.png',        srcActive:'assets/stones/05_fleurs_y.png'};
+STONE_ELEMENTS[6] = {name:'Soleil',  src:'assets/stones/06_soleil.png',        srcActive:'assets/stones/06_soleil_y.png'};
+STONE_ELEMENTS[7] = {name:'Sable',   src:'assets/stones/07_sable.png',         srcActive:'assets/stones/07_sable_y.png'};
 STONE_ELEMENTS[8] = {name:'Feu',     src:'assets/stones/08_feu.png',           srcActive:'assets/stones/08_feu_y.png'};
-STONE_ELEMENTS[9] = {name:'Ombre',   src:'assets/stones/10_ombre.png',         srcActive:'assets/stones/10_ombre_y.png'};
+STONE_ELEMENTS[9] = {name:'Vigne',   src:'assets/stones/09_vigne.png',         srcActive:'assets/stones/09_vigne_y.png'};
+STONE_ELEMENTS[10] = {name:'Ombre',  src:'assets/stones/10_ombre.png',         srcActive:'assets/stones/10_ombre_y.png'};
+STONE_ELEMENTS[11] = {name:'Or',     src:'assets/stones/11_or.png',            srcActive:'assets/stones/11_or_y.png'};
+STONE_ELEMENTS[12] = {name:'Lumière', src:'assets/stones/12_lumiere.png',      srcActive:'assets/stones/12_lumiere_y.png'};
 let activityWeeks = new Set(); // clés "AAAA-wN" (N de 0 à 51)
 function weekIndexOfYear(date){
   const start = new Date(date.getFullYear(), 0, 1);
@@ -1143,6 +1148,15 @@ function markWeekActive(){
 }
 function currentStoneGroup(){
   return Math.floor(weekIndexOfYear(new Date())/4);
+}
+// Une pierre de la collection n'est débloquée que si au moins une des 4 semaines de son
+// groupe a eu une action (activityWeeks) — le simple écoulement du temps ne suffit pas.
+function stoneGroupUnlocked(group){
+  const year = new Date().getFullYear();
+  for(let w=group*4; w<group*4+4; w++){
+    if(activityWeeks.has(year+'-w'+w)) return true;
+  }
+  return false;
 }
 function renderActivityBar(){
   const bar = document.getElementById('activity-bar');
@@ -1207,7 +1221,6 @@ function collectionTileHtml(src, name, desc, unlocked){
 }
 function renderCollectionsPanel(){
   const panel = document.getElementById('collections-panel');
-  const currentGroup = currentStoneGroup();
 
   const animalsHtml = ANIMAL_BADGES.map((b, idx)=>{
     const unlocked = unlockedAnimals.has(idx);
@@ -1215,10 +1228,12 @@ function renderCollectionsPanel(){
     return collectionTileHtml(animal.src, animal.name, b.desc, unlocked);
   }).join('');
 
+  let unlockedStonesCount = 0;
   const stonesHtml = Array.from({length: STONE_ELEMENTS.length}, (_, idx)=>{
     const el = STONE_ELEMENTS[idx] || STONE_PLACEHOLDER;
-    const unlocked = idx<=currentGroup;
-    const desc = unlocked ? 'Débloquée' : `Se débloque à la semaine ${idx*4+1}`;
+    const unlocked = stoneGroupUnlocked(idx);
+    if(unlocked) unlockedStonesCount++;
+    const desc = unlocked ? 'Débloquée' : `Se débloque en validant les actions des semaines ${idx*4+1} à ${idx*4+4}`;
     return collectionTileHtml(unlocked ? el.srcActive : el.src, el.name, desc, unlocked);
   }).join('');
 
@@ -1233,7 +1248,7 @@ function renderCollectionsPanel(){
     </div>
     <div class="panel-tabs">
       <button class="panel-tab ${collectionsTab==='animals'?'active':''}" data-tab="animals" onclick="switchCollectionsTab('animals')">🦊 Animaux (${unlockedAnimals.size}/${ANIMAL_BADGES.length})</button>
-      <button class="panel-tab ${collectionsTab==='stones'?'active':''}" data-tab="stones" onclick="switchCollectionsTab('stones')">💎 Pierres (${Math.min(currentGroup+1, STONE_ELEMENTS.length)}/${STONE_ELEMENTS.length})</button>
+      <button class="panel-tab ${collectionsTab==='stones'?'active':''}" data-tab="stones" onclick="switchCollectionsTab('stones')">💎 Pierres (${unlockedStonesCount}/${STONE_ELEMENTS.length})</button>
     </div>
     <div class="panel-view ${collectionsTab==='animals'?'active':''}" data-view="animals">
       <div class="badges-grid">${animalsHtml}</div>
@@ -1308,8 +1323,11 @@ function openFullTodoTab(){
 '.drag-handle{color:var(--muted); font-size:13px; cursor:grab; flex-shrink:0; line-height:1;}',
 '.month.drag-over{outline:2px dashed var(--gold); outline-offset:4px; background:rgba(240,193,92,0.06); border-radius:14px;}',
 '.project-head{display:flex; align-items:center; gap:8px; margin-bottom:10px;}',
+'.project-arrow{display:inline-flex; transition:transform 0.18s ease; flex-shrink:0; font-size:11px; color:var(--muted); cursor:pointer; user-select:none;}',
+'.project-arrow.collapsed{transform:rotate(-90deg);}',
+'.project-body.collapsed{display:none;}',
 '.pdot{width:9px;height:9px;border-radius:50%; flex-shrink:0;}',
-'.project-title{font-weight:700; font-size:14px; flex:1;}',
+'.project-title{font-weight:700; font-size:14px; flex:1; cursor:pointer; user-select:none;}',
 '.project-pct{font-size:11px; color:var(--muted); font-family:\'JetBrains Mono\',monospace;}',
 '.del-btn{background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:2px 6px; border-radius:6px;}',
 '.del-btn:hover{color:#ef7b6a; background:rgba(239,123,106,0.1);}',
@@ -1465,6 +1483,11 @@ function openFullTodoTab(){
 'var collapsedMonths = {};',
 'function toggleMonth(monthId){',
 '  collapsedMonths[monthId] = !collapsedMonths[monthId];',
+'  render();',
+'}',
+'var collapsedProjects = {};',
+'function toggleProject(projId){',
+'  collapsedProjects[projId] = collapsedProjects.hasOwnProperty(projId) ? !collapsedProjects[projId] : false;',
 '  render();',
 '}',
 'function addComment(projId, subId){',
@@ -1666,8 +1689,10 @@ function openFullTodoTab(){
 '    out.push("<div class=\\"month-title\\" onclick=\\"toggleMonth("+m.id+")\\"><span class=\\"month-arrow"+(collapsed?" collapsed":"")+"\\">▾</span><span class=\\"mdot\\" style=\\"background:"+seasonColor+"\\"></span>"+m.emoji+" "+m.name+"<span class=\\"mstat\\">"+mpct+"%</span></div>");',
 '    out.push("<div class=\\"month-body"+(collapsed?" collapsed":"")+"\\">");',
 '    projs.forEach(function(p){',
+'      var pCollapsed = collapsedProjects.hasOwnProperty(p.id) ? collapsedProjects[p.id] : true;',
 '      out.push("<div class=\\"project\\" draggable=\\"true\\" ondragstart=\\"onProjectDragStart(event,\'"+p.id+"\')\\" ondragend=\\"onProjectDragEnd(event)\\">");',
-'      out.push("<div class=\\"project-head\\"><span class=\\"drag-handle\\" title=\\"Glisser pour changer de mois\\">⠿</span><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\">"+p.name+"</span><button class=\\"rename-btn\\" onclick=\\"renameProject(\'"+p.id+"\')\\" title=\\"Renommer\\">✎</button><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"archive-btn\\" onclick=\\"archiveProject(\'"+p.id+"\')\\" title=\\"Archiver ce projet (retiré de la to-do et de la découverte des îles, gardé en historique)\\">📦</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
+'      out.push("<div class=\\"project-head\\"><span class=\\"drag-handle\\" title=\\"Glisser pour changer de mois\\">⠿</span><span class=\\"project-arrow"+(pCollapsed?" collapsed":"")+"\\" onclick=\\"toggleProject(\'"+p.id+"\')\\">▾</span><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\" onclick=\\"toggleProject(\'"+p.id+"\')\\">"+p.name+"</span><button class=\\"rename-btn\\" onclick=\\"renameProject(\'"+p.id+"\')\\" title=\\"Renommer\\">✎</button><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"archive-btn\\" onclick=\\"archiveProject(\'"+p.id+"\')\\" title=\\"Archiver ce projet (retiré de la to-do et de la découverte des îles, gardé en historique)\\">📦</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
+'      out.push("<div class=\\"project-body"+(pCollapsed?" collapsed":"")+"\\">");',
 '      p.subs.forEach(function(s, subIdx){',
 '        var pct = subPercent(s);',
 '        var hasChildren = s.subsubs && s.subsubs.length>0;',
@@ -1726,6 +1751,7 @@ function openFullTodoTab(){
 '      out.push("<input class=\\"date\\" id=\\"newsub-date-"+p.id+"\\" placeholder=\\"ex: 15 sept.\\">");',
 '      out.push("<button onclick=\\"addSub(\'"+p.id+"\')\\">Ajouter</button>");',
 '      out.push("</div></div>");',
+'      out.push("</div>");',
 '      out.push("</div>");',
 '    });',
 '    out.push("<div class=\\"add-row month-add\\">");',

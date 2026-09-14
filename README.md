@@ -320,3 +320,47 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
   terminés restent dépliés. Ce comportement par défaut ne s'applique que tant que
   l'utilisateur n'a pas manuellement replié/déplié le mois lui-même durant la session
   (le clic manuel reste prioritaire).
+
+### 2026-09-14
+
+- **To-do complète — projets repliables** : dans l'onglet « To-do complète »
+  (`openFullTodoTab` dans `app.js`), chaque projet a maintenant une flèche cliquable
+  (à côté de son nom, cliquable aussi) pour replier/déplier ses sous-catégories et
+  sous-sous-catégories, sur le même principe que les mois. Par défaut, tous les projets
+  s'affichent repliés à l'ouverture (seul le nom du projet est visible) ; un clic les
+  déplie, un nouveau clic les replie (`toggleProject`, `collapsedProjects`).
+- **11ᵉ pierre d'élément : Soleil** (`assets/stones/06_soleil.png` au repos,
+  `06_soleil_y.png` validée) placée en position 6 dans `STONE_ELEMENTS`.
+- **12ᵉ pierre d'élément : Sable** (`assets/stones/07_sable.png` au repos,
+  `07_sable_y.png` validée) placée en position 7 dans `STONE_ELEMENTS`.
+- **13ᵉ pierre d'élément : Vigne** (`assets/stones/09_vigne.png` au repos,
+  `09_vigne_y.png` validée) placée en position 9 dans `STONE_ELEMENTS`. Correctif au
+  passage : la pierre Ombre (fichiers `10_ombre*.png`) était codée par erreur en
+  position 9 (au lieu de 10, comme l'indique son propre nom de fichier) ; elle occupait
+  donc la place désormais prise par Vigne. Recalée en position 10.
+- **14ᵉ pierre d'élément : Or** (`assets/stones/11_or.png` au repos, `11_or_y.png`
+  validée) placée en position 11 dans `STONE_ELEMENTS`.
+- **15ᵉ pierre d'élément : Lumière** (`assets/stones/12_lumiere.png` au repos,
+  `12_lumiere_y.png` validée) placée en position 12 dans `STONE_ELEMENTS` — dernière
+  position du tableau (13 groupes de 4 semaines). Les 13 pierres de la collection sont
+  désormais toutes pourvues, `STONE_PLACEHOLDER` ne sert plus qu'en secours.
+- **Collections — pierres verrouillées enfin visibles** : dans le panneau
+  « Collections » > onglet « Pierres », une tuile verrouillée affichait déjà la bonne
+  image « au repos » (sans `_y`, ex. `12_lumiere.png`), mais un filtre CSS générique
+  (`filter:brightness(0) opacity(0.18)`, partagé avec l'onglet Animaux où l'effet
+  « silhouette mystère » est voulu) la rendait quasi invisible. Ajout d'une règle
+  spécifique à l'onglet Pierres (`.panel-view[data-view="stones"] .badge-tile.locked
+  .badge-tile-img`) qui montre l'image au repos normalement (léger noir et blanc), dans
+  `css/styles.css`. Le cadenas 🔒 superposé a ensuite été retiré pour cet onglet (image
+  suffisante pour comprendre que c'est verrouillé) via `.panel-view[data-view="stones"]
+  .badge-tile-lock{display:none;}` — inchangé pour l'onglet Animaux.
+- **Pierre « Initial » renommée « Roche »** dans `STONE_ELEMENTS[0]` (`js/app.js`).
+- **Collections — pierres débloquées uniquement par l'action réelle, plus par le simple
+  écoulement du temps** : jusqu'ici, une pierre se débloquait dès que sa période de 4
+  semaines était atteinte au calendrier (`idx<=currentGroup`), même sans aucune action
+  faite (comportement documenté comme volontaire le 2026-08-28, mais qui ne correspond
+  plus à l'usage voulu). Nouvelle fonction `stoneGroupUnlocked(group)` : une pierre
+  n'est désormais débloquée que si au moins une des 4 semaines de son groupe a une action
+  validée dans `activityWeeks` (0 semaine validée sur 4 = verrouillée, 1 ou plus =
+  déverrouillée). Le panneau Collections (`renderCollectionsPanel` dans `js/app.js`) et le
+  compteur de l'onglet Pierres utilisent cette règle via `stoneGroupUnlocked`.

@@ -355,6 +355,8 @@ body{
 .badge-tile-img-wrap{ position:relative; aspect-ratio:5/3; margin-bottom:8px; }
 .badge-tile-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 5px 6px rgba(0,0,0,0.4)); }
 .badge-tile.locked .badge-tile-img{ filter:brightness(0) opacity(0.18); }
+.panel-view[data-view="stones"] .badge-tile.locked .badge-tile-img{ filter:drop-shadow(0 5px 6px rgba(0,0,0,0.4)) grayscale(0.4); opacity:0.85; }
+.panel-view[data-view="stones"] .badge-tile-lock{ display:none; }
 .badge-tile.unlocked .badge-tile-img{ cursor:zoom-in; }
 .badge-tile-lock{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:20px; opacity:0.55; }
 .badge-tile .name{font-size:11px; font-weight:800; line-height:1.25;}
