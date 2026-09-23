@@ -364,3 +364,8 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
   validée dans `activityWeeks` (0 semaine validée sur 4 = verrouillée, 1 ou plus =
   déverrouillée). Le panneau Collections (`renderCollectionsPanel` dans `js/app.js`) et le
   compteur de l'onglet Pierres utilisent cette règle via `stoneGroupUnlocked`.
+
+### 2026-09-23
+
+- **Mise à jour des images d'îles** : nouvelles versions de `assets/islands/00_Janvier.png`
+  à `07_Aout.png` (janvier à août).
