@@ -48,13 +48,16 @@
   <div class="badges-grid" id="badges-grid-static"></div>
 </div>
 
-<div class="notes-section">
-  <div class="notes-section-head">
+<!-- Bloc-notes : panneau latéral gauche, plusieurs notes reliables aux projets -->
+<button class="notes-tab" id="notes-tab" title="Ouvrir le bloc-notes">📝<span>Notes</span></button>
+<aside class="notes-sidebar" id="notes-sidebar" aria-label="Bloc-notes">
+  <div class="notes-sidebar-head">
     <h2 class="title-font">📝 Bloc-notes</h2>
     <div class="notes-saved-indicator" id="notes-saved-indicator"></div>
+    <button class="close-btn" id="notes-close" title="Replier le bloc-notes">✕</button>
   </div>
-  <textarea class="notes-textarea" id="notes-textarea" placeholder="Idées, rappels, choses à ne pas oublier pour l'année…"></textarea>
-</div>
+  <div class="notes-body" id="notes-body"></div>
+</aside>
 
 <div id="toast-zone"></div>
 <div class="overlay" id="month-overlay"><div class="panel" id="month-panel"></div></div>

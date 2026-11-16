@@ -4,7 +4,7 @@ const STATUS_META = {
   not_started: {label:'Pas commencé', short:'Non démarré', pct:0, color:'var(--st-not)'},
   in_progress: {label:'En cours', short:'En cours', pctDefault:50, editable:true, color:'var(--st-progress)'},
   done: {label:'Terminé', short:'Terminé', pct:100, color:'var(--st-done)'},
-  transferred: {label:'Transféré à une autre équipe', short:'Transféré', pct:95, color:'var(--st-transfer)'},
+  transferred: {label:'Transféré à une autre équipe', short:'Transféré', pct:100, color:'var(--st-transfer)'},
 };
 function leafPercent(item){
   if(item.status==='in_progress') return item.percent ?? STATUS_META.in_progress.pctDefault;
@@ -15,6 +15,13 @@ function leafPercent(item){
 function subPercent(sub){
   if(sub.subsubs && sub.subsubs.length) return Math.round(sub.subsubs.reduce((a,ss)=>a+leafPercent(ss),0)/sub.subsubs.length);
   return leafPercent(sub);
+}
+// Vrai si au moins une sous-catégorie (ou sous-sous-catégorie) du projet a été transférée à une autre équipe.
+function projectHasTransfer(p){
+  return p.subs.some(s=>s.status==='transferred' || (s.subsubs||[]).some(ss=>ss.status==='transferred'));
+}
+function transferTagHtml(p){
+  return projectHasTransfer(p) ? '<span class="transfer-tag" title="Une partie du projet a été transférée à une autre équipe">🔁 transféré équipe</span>' : '';
 }
 function subIsDone(sub){
   if(sub.subsubs && sub.subsubs.length) return sub.subsubs.every(ss=>ss.status==='done');
@@ -665,7 +672,7 @@ function buildMap(){
         <div class="island-check">✓</div>
         <div class="cloud-layer">${puffsHtml}</div>
       </div>
-      <div class="island-sub">${locked ? '—' : st.pct+'%'}</div>
+      <div class="island-sub">${projectsForMonth(m.id).length===0 ? '--%' : (locked ? '—' : st.pct+'%')}</div>
     `;
     if(!locked){
       node.addEventListener('click', ()=>{
@@ -850,7 +857,8 @@ function openMonth(monthId){
       <div class="project-head">
         <div class="project-dot" style="background:${p.color}"></div>
         <div class="project-title">${p.name}</div>
-        <div class="project-progress-mini">${avg}%</div>
+        <div class="project-progress-mini">${avg}%${transferTagHtml(p)}</div>
+        <button class="project-notes-btn" onclick="openNotesForProject('${p.id}')" title="${notesForProject(p.id).length ? 'Voir les notes de ce projet' : 'Créer une note pour ce projet'}">📝 ${notesForProject(p.id).length || '＋'}</button>
       </div>
       <div id="subs-${p.id}"></div>
     `;
@@ -865,7 +873,7 @@ function openMonth(monthId){
         <div class="subcat-top">
           <div class="subcat-name">${sub.name}</div>
           <div class="subcat-date">${sub.date}</div>
-          <div class="subcat-pct" style="background:${pctColor(pct)}22; color:${pctColor(pct)}">${pct}%</div>
+          <div class="subcat-pct" style="background:${(hasChildren?pctColor(pct):STATUS_META[sub.status].color)}22; color:${(hasChildren?pctColor(pct):STATUS_META[sub.status].color)}">${pct}%</div>
         </div>
         ${hasChildren ? '' : `
         <div class="subcat-controls">
@@ -901,7 +909,7 @@ function openMonth(monthId){
             <div class="subsubcat-top">
               <div class="subsubcat-name">${ss.name}</div>
               <div class="subcat-date">${ss.date}</div>
-              <div class="subcat-pct" style="background:${pctColor(ssPct)}22; color:${pctColor(ssPct)}">${ssPct}%</div>
+              <div class="subcat-pct" style="background:${STATUS_META[ss.status].color}22; color:${STATUS_META[ss.status].color}">${ssPct}%</div>
             </div>
             <div class="subcat-controls">
               <select class="status-select">
@@ -1282,6 +1290,8 @@ function openFullTodoTab(){
   const initialData = JSON.stringify(PROJECTS);
   const monthsJson = JSON.stringify(MONTHS);
   const seasonsJson = JSON.stringify(SEASONS);
+  // « < » échappé pour qu'un « </script> » tapé dans une note ne casse pas la page générée.
+  const notesJson = JSON.stringify(NOTES).replace(/</g, '\\u003c');
 
   const html = [
 '<!DOCTYPE html>',
@@ -1317,6 +1327,7 @@ function openFullTodoTab(){
 '.unarchive-btn:hover{border-color:var(--gold); color:var(--gold);}',
 '.mdot{width:9px;height:9px;border-radius:50%; flex-shrink:0;}',
 '.mstat{margin-left:auto; font-family:\'JetBrains Mono\',monospace; font-size:12px; color:var(--muted); font-weight:400;}',
+'.month-title .mstat{font-size:18px; font-weight:800; color:var(--white);}',
 '.project{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:14px 16px; margin-bottom:10px; transition:opacity 0.15s, border-color 0.15s;}',
 '.project[draggable="true"]{cursor:grab;}',
 '.project.dragging{opacity:0.35; border-style:dashed;}',
@@ -1328,7 +1339,18 @@ function openFullTodoTab(){
 '.project-body.collapsed{display:none;}',
 '.pdot{width:9px;height:9px;border-radius:50%; flex-shrink:0;}',
 '.project-title{font-weight:700; font-size:14px; flex:1; cursor:pointer; user-select:none;}',
-'.project-pct{font-size:11px; color:var(--muted); font-family:\'JetBrains Mono\',monospace;}',
+'.project-pct{font-size:16px; font-weight:800; color:var(--white); font-family:\'JetBrains Mono\',monospace; display:inline-flex; align-items:center; gap:6px;}',
+'.notes-btn{background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:var(--white); border-radius:8px; font-size:11.5px; font-weight:700; padding:3px 8px; cursor:pointer; white-space:nowrap;}',
+'.notes-btn:hover, .notes-btn.on{border-color:var(--gold); color:var(--gold);}',
+'.notes-panel{margin:4px 0 10px; display:flex; flex-direction:column; gap:8px;}',
+'.note-item{background:rgba(240,193,92,0.06); border:1px solid rgba(240,193,92,0.22); border-radius:10px; padding:9px 11px;}',
+'.note-head{display:flex; align-items:center; gap:8px; margin-bottom:5px;}',
+'.note-title{flex:1; min-width:0; font-weight:800; font-size:13px;}',
+'.note-date{font-size:10.5px; color:var(--muted); font-family:\'JetBrains Mono\',monospace;}',
+'.note-edit{background:none; border:none; color:var(--gold); font-size:11.5px; font-weight:700; cursor:pointer; padding:2px 4px;}',
+'.note-text{font-size:12.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word;}',
+'.note-text em{color:var(--muted);}',
+'.transfer-tag{font-size:10px; font-weight:700; font-family:inherit; color:var(--st-transfer); background:rgba(110,198,232,.14); border:1px solid rgba(110,198,232,.4); padding:1px 6px; border-radius:8px; white-space:nowrap;}',
 '.del-btn{background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:2px 6px; border-radius:6px;}',
 '.del-btn:hover{color:#ef7b6a; background:rgba(239,123,106,0.1);}',
 '.subcat-row{padding:9px 0; border-top:1px dashed rgba(255,255,255,0.07);}',
@@ -1391,9 +1413,10 @@ function openFullTodoTab(){
 '  not_started: {short:"Non démarré", pct:0, color:"var(--st-not)"},',
 '  in_progress: {short:"En cours", pctDefault:50, color:"var(--st-progress)"},',
 '  done: {short:"Terminé", pct:100, color:"var(--st-done)"},',
-'  transferred: {short:"Transféré équipe", pct:95, color:"var(--st-transfer)"}',
+'  transferred: {short:"Transféré équipe", pct:100, color:"var(--st-transfer)"}',
 '};',
 'var DATA = ' + initialData + ';',
+'var NOTES = ' + notesJson + ';',
 '',
 'function leafPercent(item){',
 '  if(item.status==="in_progress") return (item.percent===undefined?50:item.percent);',
@@ -1409,6 +1432,12 @@ function openFullTodoTab(){
 'function subIsDone(sub){',
 '  if(sub.subsubs && sub.subsubs.length) return sub.subsubs.every(function(ss){return ss.status==="done";});',
 '  return sub.status==="done";',
+'}',
+'function projectHasTransfer(p){',
+'  return p.subs.some(function(s){ return s.status==="transferred" || (s.subsubs||[]).some(function(ss){ return ss.status==="transferred"; }); });',
+'}',
+'function transferTag(p){',
+'  return projectHasTransfer(p) ? "<span class=\\"transfer-tag\\" title=\\"Une partie du projet a été transférée à une autre équipe\\">🔁 transféré équipe</span>" : "";',
 '}',
 'function pctColorAgg(pct){',
 '  if(pct>=100) return "var(--st-done)";',
@@ -1484,6 +1513,33 @@ function openFullTodoTab(){
 'function toggleMonth(monthId){',
 '  collapsedMonths[monthId] = !collapsedMonths[monthId];',
 '  render();',
+'}',
+'// Notes du bloc-notes (lecture seule ici ; « Modifier » rouvre la note dans le bloc-notes de la carte).',
+'var openNotes = {};',
+'function escN(s){ return String(s==null?"":s).replace(/[&<>"\']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","\'":"&#39;"}[c]; }); }',
+'function notesOf(projId){',
+'  return NOTES.filter(function(n){ return projId===null ? !n.projectId || !DATA.some(function(p){ return p.id===n.projectId; }) : n.projectId===projId; })',
+'              .sort(function(a,b){ return b.updatedAt-a.updatedAt; });',
+'}',
+'function toggleNotes(key){ openNotes[key] = !openNotes[key]; render(); }',
+'function notesBtn(p){',
+'  var n = notesOf(p.id).length;',
+'  if(!n) return "";',
+'  return "<button class=\\"notes-btn"+(openNotes[p.id]?" on":"")+"\\" onclick=\\"toggleNotes(\'"+p.id+"\')\\" title=\\""+(openNotes[p.id]?"Masquer":"Voir")+" les notes de ce projet\\">📝 "+n+"</button>";',
+'}',
+'function noteHtml(n){',
+'  var d = new Date(n.updatedAt).toLocaleDateString("fr-FR", {day:"numeric", month:"short"});',
+'  return "<div class=\\"note-item\\"><div class=\\"note-head\\"><span class=\\"note-title\\">"+escN((n.title||"").trim()||"Sans titre")+"</span><span class=\\"note-date\\">"+d+"</span><button class=\\"note-edit\\" onclick=\\"editNote(\'"+n.id+"\')\\" title=\\"Ouvrir cette note dans le bloc-notes pour la modifier\\">✎ Modifier</button></div>" +',
+'         "<div class=\\"note-text\\">"+(n.content.trim() ? escN(n.content) : "<em>Note vide</em>")+"</div></div>";',
+'}',
+'function notesPanel(p){',
+'  if(!openNotes[p.id]) return "";',
+'  var list = notesOf(p.id);',
+'  return list.length ? "<div class=\\"notes-panel\\">"+list.map(noteHtml).join("")+"</div>" : "";',
+'}',
+'function editNote(id){',
+'  var target = window.opener || (window.parent !== window ? window.parent : null);',
+'  if(target){ target.postMessage({type:"archipel-open-note", id:id}, "*"); }',
 '}',
 'var collapsedProjects = {};',
 'function toggleProject(projId){',
@@ -1686,12 +1742,13 @@ function openFullTodoTab(){
 '    var mpct = monthPct(m.id);',
 '    var collapsed = collapsedMonths.hasOwnProperty(m.id) ? collapsedMonths[m.id] : (mpct===100);',
 '    out.push("<section class=\\"month\\" ondragover=\\"onMonthDragOver(event)\\" ondragleave=\\"onMonthDragLeave(event)\\" ondrop=\\"onMonthDrop(event,"+m.id+")\\">");',
-'    out.push("<div class=\\"month-title\\" onclick=\\"toggleMonth("+m.id+")\\"><span class=\\"month-arrow"+(collapsed?" collapsed":"")+"\\">▾</span><span class=\\"mdot\\" style=\\"background:"+seasonColor+"\\"></span>"+m.emoji+" "+m.name+"<span class=\\"mstat\\">"+mpct+"%</span></div>");',
+'    out.push("<div class=\\"month-title\\" onclick=\\"toggleMonth("+m.id+")\\"><span class=\\"month-arrow"+(collapsed?" collapsed":"")+"\\">▾</span><span class=\\"mdot\\" style=\\"background:"+seasonColor+"\\"></span>"+m.emoji+" "+m.name+"<span class=\\"mstat\\">"+(projs.length ? mpct+"%" : "--%")+"</span></div>");',
 '    out.push("<div class=\\"month-body"+(collapsed?" collapsed":"")+"\\">");',
 '    projs.forEach(function(p){',
 '      var pCollapsed = collapsedProjects.hasOwnProperty(p.id) ? collapsedProjects[p.id] : true;',
 '      out.push("<div class=\\"project\\" draggable=\\"true\\" ondragstart=\\"onProjectDragStart(event,\'"+p.id+"\')\\" ondragend=\\"onProjectDragEnd(event)\\">");',
-'      out.push("<div class=\\"project-head\\"><span class=\\"drag-handle\\" title=\\"Glisser pour changer de mois\\">⠿</span><span class=\\"project-arrow"+(pCollapsed?" collapsed":"")+"\\" onclick=\\"toggleProject(\'"+p.id+"\')\\">▾</span><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\" onclick=\\"toggleProject(\'"+p.id+"\')\\">"+p.name+"</span><button class=\\"rename-btn\\" onclick=\\"renameProject(\'"+p.id+"\')\\" title=\\"Renommer\\">✎</button><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"archive-btn\\" onclick=\\"archiveProject(\'"+p.id+"\')\\" title=\\"Archiver ce projet (retiré de la to-do et de la découverte des îles, gardé en historique)\\">📦</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
+'      out.push("<div class=\\"project-head\\"><span class=\\"drag-handle\\" title=\\"Glisser pour changer de mois\\">⠿</span><span class=\\"project-arrow"+(pCollapsed?" collapsed":"")+"\\" onclick=\\"toggleProject(\'"+p.id+"\')\\">▾</span><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"project-title\\" onclick=\\"toggleProject(\'"+p.id+"\')\\">"+p.name+"</span><button class=\\"rename-btn\\" onclick=\\"renameProject(\'"+p.id+"\')\\" title=\\"Renommer\\">✎</button><span class=\\"project-pct\\">"+projectPct(p)+"%"+transferTag(p)+"</span>"+notesBtn(p)+"<button class=\\"archive-btn\\" onclick=\\"archiveProject(\'"+p.id+"\')\\" title=\\"Archiver ce projet (retiré de la to-do et de la découverte des îles, gardé en historique)\\">📦</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer le projet\\">✕</button></div>");',
+'      out.push(notesPanel(p));',
 '      out.push("<div class=\\"project-body"+(pCollapsed?" collapsed":"")+"\\">");',
 '      p.subs.forEach(function(s, subIdx){',
 '        var pct = subPercent(s);',
@@ -1767,6 +1824,13 @@ function openFullTodoTab(){
 '',
 '  var archived = archivedProjects();',
 '  var outA = [];',
+'  var loose = notesOf(null);',
+'  if(loose.length){',
+'    outA.push("<section class=\\"archived-section\\">");',
+'    outA.push("<div class=\\"archived-title\\" onclick=\\"toggleNotes(\'_none\')\\"><span class=\\"month-arrow"+(openNotes._none?"":" collapsed")+"\\">▾</span>📝 Notes sans projet<span class=\\"mstat\\">"+loose.length+"</span></div>");',
+'    if(openNotes._none) outA.push("<div class=\\"notes-panel\\">"+loose.map(noteHtml).join("")+"</div>");',
+'    outA.push("</section>");',
+'  }',
 '  outA.push("<section class=\\"archived-section\\">");',
 '  outA.push("<div class=\\"archived-title\\" onclick=\\"toggleArchivedSection()\\"><span class=\\"month-arrow"+(archivedCollapsed?" collapsed":"")+"\\">▾</span>🗄️ Projets archivés (historique)<span class=\\"mstat\\">"+archived.length+"</span></div>");',
 '  outA.push("<div class=\\"archived-body"+(archivedCollapsed?" collapsed":"")+"\\">");',
@@ -1776,7 +1840,8 @@ function openFullTodoTab(){
 '  archived.forEach(function(p){',
 '    var monthName = MONTHS[p.month] ? MONTHS[p.month].name : "?";',
 '    outA.push("<div class=\\"project archived-project\\">");',
-'    outA.push("<div class=\\"project-head\\"><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"archived-month-tag\\">"+monthName+"</span><span class=\\"project-title\\">"+p.name+"</span><span class=\\"project-pct\\">"+projectPct(p)+"%</span><button class=\\"unarchive-btn\\" onclick=\\"unarchiveProject(\'"+p.id+"\')\\" title=\\"Remettre ce projet dans la to-do active\\">♻️ Désarchiver</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer définitivement\\">✕</button></div>");',
+'    outA.push("<div class=\\"project-head\\"><span class=\\"pdot\\" style=\\"background:"+p.color+"\\"></span><span class=\\"archived-month-tag\\">"+monthName+"</span><span class=\\"project-title\\">"+p.name+"</span><span class=\\"project-pct\\">"+projectPct(p)+"%"+transferTag(p)+"</span>"+notesBtn(p)+"<button class=\\"unarchive-btn\\" onclick=\\"unarchiveProject(\'"+p.id+"\')\\" title=\\"Remettre ce projet dans la to-do active\\">♻️ Désarchiver</button><button class=\\"del-btn\\" onclick=\\"deleteProject(\'"+p.id+"\')\\" title=\\"Supprimer définitivement\\">✕</button></div>");',
+'    outA.push(notesPanel(p));',
 '    p.subs.forEach(function(s){',
 '      var pct = subPercent(s);',
 '      var hasChildren = s.subsubs && s.subsubs.length>0;',
@@ -1823,14 +1888,23 @@ window.addEventListener('message', function(e){
     if(e.data.markActive) markWeekActive();
     refreshAll();
     checkBadges();
+    if(!notesView.openId) renderNotes(); // noms/filtres de projets à jour (sans couper une saisie en cours)
     showToast('🔄', "To-do mise à jour depuis l'autre onglet");
     scheduleSave(getAppStateSnapshot);
+  }
+  // « ✎ Modifier » sur une note de la to-do complète : on revient à la carte, note ouverte.
+  if(e.data && e.data.type==='archipel-open-note' && NOTES.some(n=>n.id===e.data.id)){
+    const overlay = document.getElementById('fulltodo-overlay');
+    if(overlay) overlay.style.display = 'none';
+    notesView.openId = e.data.id;
+    setNotesOpen(true);
+    renderNotes();
   }
 });
 
 /* ============ PERSISTANCE (Supabase) ============ */
 function getAppStateSnapshot(){
-  return { projects: PROJECTS, notes: notesContent, unlockedAnimals: Array.from(unlockedAnimals), activityWeeks: Array.from(activityWeeks) };
+  return { projects: PROJECTS, notes: NOTES, unlockedAnimals: Array.from(unlockedAnimals), activityWeeks: Array.from(activityWeeks) };
 }
 
 /* ============ COMPTE (lien magique par e-mail) ============ */
@@ -1891,21 +1965,260 @@ async function handleAccountAction(kind){
   msg.textContent = error ? ('Erreur : '+error.message) : '📩 Vérifie ta boîte mail et clique le lien pour finaliser.';
 }
 
-/* ============ BLOC-NOTES ============ */
-let notesContent = '';
+/* ============ BLOC-NOTES (panneau gauche, notes multiples liées aux projets) ============ */
+// Chaque note : {id, title, content, projectId (ou null), updatedAt}.
+// Une note est reliée à au plus un projet ; un projet peut avoir plusieurs notes.
+let NOTES = [];
+const notesView = { openId:null, filter:'all', selected:new Set(), mergeConfirm:false };
 let notesSaveTimer = null;
-const notesTextarea = document.getElementById('notes-textarea');
+let noteDeleteArmTimer = null;
+const notesBody = document.getElementById('notes-body');
 const notesIndicator = document.getElementById('notes-saved-indicator');
-notesTextarea.value = notesContent;
-notesTextarea.addEventListener('input', (e)=>{
-  notesContent = e.target.value;
+
+function escHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function newNoteId(){ return 'n'+Date.now().toString(36)+Math.floor(Math.random()*1000); }
+// Accepte le nouveau format (tableau) et l'ancien bloc-notes unique (texte), migré en une première note.
+function normalizeNotes(raw){
+  if(Array.isArray(raw)) return raw.filter(n=>n && n.id).map(n=>({
+    id:n.id, title:n.title||'', content:n.content||'', projectId:n.projectId||null, updatedAt:n.updatedAt||Date.now()
+  }));
+  if(typeof raw==='string' && raw.trim()) return [{id:newNoteId(), title:'Notes générales', content:raw, projectId:null, updatedAt:Date.now()}];
+  return [];
+}
+function noteProject(n){ return n.projectId ? (PROJECTS.find(p=>p.id===n.projectId) || null) : null; }
+function notesForProject(projId){ return NOTES.filter(n=>n.projectId===projId); }
+function noteDate(ts){
+  return new Date(ts).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}) + ' ' +
+         new Date(ts).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+}
+function projectChipHtml(p){
+  return p ? `<span class="note-project-chip"><i style="background:${p.color}"></i><b>${escHtml(p.name)}</b></span>` : '';
+}
+// <option>s des projets, regroupés par mois ; les archivés à part.
+function projectOptionsHtml(selectedId){
+  const sel = id => id===selectedId ? ' selected' : '';
+  let html = '';
+  MONTHS.forEach(m=>{
+    const projs = projectsForMonth(m.id);
+    if(!projs.length) return;
+    html += `<optgroup label="${escHtml(m.emoji+' '+m.name)}">` +
+      projs.map(p=>`<option value="${p.id}"${sel(p.id)}>${escHtml(p.name)}</option>`).join('') + '</optgroup>';
+  });
+  const archived = PROJECTS.filter(p=>p.archived);
+  if(archived.length){
+    html += `<optgroup label="🗄️ Archivés">` +
+      archived.map(p=>`<option value="${p.id}"${sel(p.id)}>${escHtml(p.name)}</option>`).join('') + '</optgroup>';
+  }
+  return html;
+}
+
+function persistNotes(){
   notesIndicator.textContent = 'Frappe en cours…';
   clearTimeout(notesSaveTimer);
-  notesSaveTimer = setTimeout(()=>{
-    notesIndicator.textContent = 'Sauvegardé ✓';
-  }, 600);
+  notesSaveTimer = setTimeout(()=>{ notesIndicator.textContent = 'Sauvegardé ✓'; }, 600);
   scheduleSave(getAppStateSnapshot);
-});
+}
+// Les compteurs 📝 du panneau du mois dépendent des liens note ↔ projet.
+function refreshMonthPanelIfOpen(){
+  if(currentPanelMonth !== null) openMonth(currentPanelMonth);
+}
+
+function setNotesOpen(open){
+  document.body.classList.toggle('notes-open', open);
+  try { localStorage.setItem('archipel-notes-open', open ? '1' : '0'); } catch(e){}
+}
+document.getElementById('notes-tab').addEventListener('click', ()=>{ setNotesOpen(true); renderNotes(); });
+document.getElementById('notes-close').addEventListener('click', ()=>setNotesOpen(false));
+
+function renderNotes(){
+  const open = notesView.openId && NOTES.find(n=>n.id===notesView.openId);
+  if(open) renderNoteEditor(open); else { notesView.openId = null; renderNotesList(); }
+}
+
+function renderNotesList(){
+  // Un filtre sur un projet supprimé retombe sur « toutes les notes ».
+  if(!['all','none'].includes(notesView.filter) && !PROJECTS.some(p=>p.id===notesView.filter)) notesView.filter = 'all';
+  // La sélection ne garde que des notes qui existent encore.
+  notesView.selected.forEach(id=>{ if(!NOTES.some(n=>n.id===id)) notesView.selected.delete(id); });
+  if(notesView.selected.size < 2) notesView.mergeConfirm = false;
+
+  const f = notesView.filter;
+  const visible = NOTES
+    .filter(n => f==='all' ? true : f==='none' ? !noteProject(n) : n.projectId===f)
+    .sort((a,b)=>b.updatedAt-a.updatedAt);
+  const linkedIds = new Set(NOTES.map(n=>n.projectId).filter(Boolean));
+  const filterOpts = `
+    <option value="all"${f==='all'?' selected':''}>Toutes les notes (${NOTES.length})</option>
+    <option value="none"${f==='none'?' selected':''}>Sans projet (${NOTES.filter(n=>!noteProject(n)).length})</option>
+    ${PROJECTS.filter(p=>linkedIds.has(p.id) || p.id===f).map(p=>
+      `<option value="${p.id}"${f===p.id?' selected':''}>${escHtml(p.name)} (${notesForProject(p.id).length})</option>`).join('')}
+  `;
+
+  const nSel = notesView.selected.size;
+  let mergeBar = '';
+  if(nSel){
+    if(notesView.mergeConfirm){
+      const target = mergedNoteProject(selectedNotesChrono());
+      mergeBar = `<div class="notes-merge-bar">
+        <span class="grow">Fusionner ${nSel} notes en une seule${target ? ' liée à « '+escHtml(target.name)+' »' : ''} ? Les notes d'origine seront remplacées.</span>
+        <button class="notes-btn primary" data-act="merge-do">Confirmer</button>
+        <button class="notes-btn" data-act="merge-cancel">Annuler</button></div>`;
+    } else {
+      mergeBar = `<div class="notes-merge-bar">
+        <span class="grow">${nSel} note${nSel>1?'s':''} sélectionnée${nSel>1?'s':''}</span>
+        <button class="notes-btn primary" data-act="merge-ask"${nSel<2?' disabled title="Sélectionne au moins 2 notes"':''}>🔗 Fusionner</button>
+        <button class="notes-btn" data-act="select-clear">Désélectionner</button></div>`;
+    }
+  }
+
+  const cards = visible.map(n=>{
+    const p = noteProject(n);
+    const preview = n.content.trim().slice(0,140);
+    return `<div class="note-card${notesView.selected.has(n.id)?' selected':''}" data-id="${n.id}">
+      <input type="checkbox" class="note-check" title="Sélectionner pour fusionner"${notesView.selected.has(n.id)?' checked':''}>
+      <div class="note-card-main">
+        <div class="note-card-title">${escHtml(n.title.trim() || 'Sans titre')}</div>
+        ${preview ? `<div class="note-card-preview">${escHtml(preview)}</div>` : ''}
+        <div class="note-card-meta">${projectChipHtml(p)}<span>${noteDate(n.updatedAt)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  notesBody.innerHTML = `
+    <div class="notes-toolbar">
+      <button class="notes-btn primary" data-act="new">＋ Nouvelle note</button>
+      <select class="notes-select" data-act="filter" title="Filtrer par projet">${filterOpts}</select>
+    </div>
+    ${mergeBar}
+    <div class="notes-list">${cards || `<div class="notes-empty">${NOTES.length
+      ? 'Aucune note pour ce filtre.'
+      : 'Aucune note pour l\'instant. Crée une note, relie-la à un projet si besoin, et coche plusieurs notes pour les fusionner.'}</div>`}</div>
+  `;
+
+  notesBody.querySelector('[data-act="new"]').addEventListener('click', ()=>{
+    const projectId = (f!=='all' && f!=='none') ? f : null;
+    createNote(projectId);
+  });
+  notesBody.querySelector('[data-act="filter"]').addEventListener('change', e=>{ notesView.filter = e.target.value; renderNotesList(); });
+  const act = (name, fn) => { const b = notesBody.querySelector(`[data-act="${name}"]`); if(b) b.addEventListener('click', fn); };
+  act('merge-ask', ()=>{ notesView.mergeConfirm = true; renderNotesList(); });
+  act('merge-cancel', ()=>{ notesView.mergeConfirm = false; renderNotesList(); });
+  act('merge-do', mergeSelectedNotes);
+  act('select-clear', ()=>{ notesView.selected.clear(); renderNotesList(); });
+  notesBody.querySelectorAll('.note-card').forEach(card=>{
+    const id = card.dataset.id;
+    card.querySelector('.note-check').addEventListener('click', e=>{
+      e.stopPropagation();
+      if(e.target.checked) notesView.selected.add(id); else notesView.selected.delete(id);
+      notesView.mergeConfirm = false;
+      renderNotesList();
+    });
+    card.addEventListener('click', ()=>{ notesView.openId = id; renderNotes(); });
+  });
+}
+
+function renderNoteEditor(note){
+  notesBody.innerHTML = `
+    <div class="notes-toolbar"><button class="notes-btn" data-act="back">← Toutes les notes</button></div>
+    <div class="note-editor">
+      <input class="note-title-input" type="text" placeholder="Titre de la note" value="${escHtml(note.title)}">
+      <label>Projet lié</label>
+      <select class="notes-select note-project-select">
+        <option value="">— Aucun projet —</option>
+        ${projectOptionsHtml(note.projectId)}
+      </select>
+      <textarea class="note-content" placeholder="Idées, comptes rendus, choses à ne pas oublier…">${escHtml(note.content)}</textarea>
+      <div class="note-editor-foot">
+        <span class="note-updated">Modifiée ${noteDate(note.updatedAt)}</span>
+        <button class="notes-btn danger" data-act="delete">🗑 Supprimer</button>
+      </div>
+    </div>
+  `;
+  const touch = ()=>{ note.updatedAt = Date.now(); notesBody.querySelector('.note-updated').textContent = 'Modifiée '+noteDate(note.updatedAt); persistNotes(); };
+  notesBody.querySelector('[data-act="back"]').addEventListener('click', ()=>{ notesView.openId = null; renderNotes(); });
+  notesBody.querySelector('.note-title-input').addEventListener('input', e=>{ note.title = e.target.value; touch(); });
+  notesBody.querySelector('.note-content').addEventListener('input', e=>{ note.content = e.target.value; touch(); });
+  notesBody.querySelector('.note-project-select').addEventListener('change', e=>{
+    note.projectId = e.target.value || null;
+    touch();
+    refreshMonthPanelIfOpen();
+  });
+  // Suppression en deux clics (le 2e dans les 3 secondes) pour éviter les erreurs.
+  const del = notesBody.querySelector('[data-act="delete"]');
+  del.addEventListener('click', ()=>{
+    if(!del.classList.contains('armed')){
+      del.classList.add('armed'); del.textContent = 'Confirmer la suppression';
+      clearTimeout(noteDeleteArmTimer);
+      noteDeleteArmTimer = setTimeout(()=>{ del.classList.remove('armed'); del.textContent = '🗑 Supprimer'; }, 3000);
+      return;
+    }
+    clearTimeout(noteDeleteArmTimer);
+    NOTES = NOTES.filter(n=>n.id!==note.id);
+    notesView.selected.delete(note.id);
+    notesView.openId = null;
+    persistNotes();
+    renderNotes();
+    refreshMonthPanelIfOpen();
+    showToast('🗑', 'Note supprimée');
+  });
+}
+
+function createNote(projectId){
+  const note = {id:newNoteId(), title:'', content:'', projectId:projectId||null, updatedAt:Date.now()};
+  NOTES.push(note);
+  notesView.openId = note.id;
+  persistNotes();
+  setNotesOpen(true);
+  renderNotes();
+  notesBody.querySelector('.note-title-input').focus();
+  if(projectId) refreshMonthPanelIfOpen();
+}
+
+// Notes sélectionnées, dans l'ordre chronologique (la plus ancienne d'abord).
+function selectedNotesChrono(){
+  return NOTES.filter(n=>notesView.selected.has(n.id)).sort((a,b)=>a.updatedAt-b.updatedAt);
+}
+// La note fusionnée garde le projet de la plus ancienne note liée à un projet existant.
+function mergedNoteProject(notes){
+  for(const n of notes){ const p = noteProject(n); if(p) return p; }
+  return null;
+}
+function mergeSelectedNotes(){
+  const notes = selectedNotesChrono();
+  if(notes.length < 2) return;
+  const project = mergedNoteProject(notes);
+  const titles = notes.map(n=>n.title.trim()).filter(Boolean);
+  const merged = {
+    id:newNoteId(),
+    title: titles.length ? titles.join(' + ').slice(0,120) : 'Notes fusionnées',
+    content: notes.map(n=>`── ${n.title.trim() || 'Sans titre'} ──\n${n.content.trim()}`).join('\n\n'),
+    projectId: project ? project.id : null,
+    updatedAt: Date.now(),
+  };
+  const ids = new Set(notes.map(n=>n.id));
+  NOTES = NOTES.filter(n=>!ids.has(n.id)).concat(merged);
+  notesView.selected.clear();
+  notesView.mergeConfirm = false;
+  notesView.openId = merged.id;
+  persistNotes();
+  renderNotes();
+  refreshMonthPanelIfOpen();
+  showToast('🔗', `${notes.length} notes fusionnées`);
+}
+
+// Depuis le panneau d'un mois : ouvre les notes du projet, ou en crée une s'il n'en a pas.
+function openNotesForProject(projId){
+  if(notesForProject(projId).length){
+    notesView.filter = projId;
+    notesView.openId = null;
+    setNotesOpen(true);
+    renderNotes();
+  } else {
+    createNote(projId);
+  }
+}
 
 /* ============ INIT ============ */
 async function initApp(){
@@ -1913,10 +2226,7 @@ async function initApp(){
   const saved = await loadState();
   if(saved){
     if(Array.isArray(saved.projects)) PROJECTS = saved.projects;
-    if(typeof saved.notes === 'string'){
-      notesContent = saved.notes;
-      notesTextarea.value = notesContent;
-    }
+    NOTES = normalizeNotes(saved.notes);
     if(Array.isArray(saved.unlockedAnimals)){
       unlockedAnimals = new Set(saved.unlockedAnimals);
     }
@@ -1933,5 +2243,10 @@ async function initApp(){
   buildMap();
   checkBadges();
   renderActivityBar();
+  // Bloc-notes : ouvert par défaut sur grand écran, puis on retient le dernier choix.
+  let notesPref = null;
+  try { notesPref = localStorage.getItem('archipel-notes-open'); } catch(e){}
+  document.body.classList.toggle('notes-open', notesPref ? notesPref==='1' : window.innerWidth >= 1280);
+  renderNotes();
 }
 initApp();

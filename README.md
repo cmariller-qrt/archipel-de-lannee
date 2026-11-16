@@ -1,7 +1,7 @@
 # 🧭 Archipel de l'Année
 
 To-do gamifiée : chaque mois est une île à découvrir dans un archipel, avec projets,
-sous-catégories à faire avancer, une collection d'animaux à débloquer, et un bloc-notes.
+sous-catégories à faire avancer, une collection d'animaux à débloquer, et un bloc-notes (plusieurs notes, reliables aux projets).
 
 Ce dossier est prêt à être ouvert dans **Cursor**, versionné sur **GitHub**, connecté à
 **Supabase** (sauvegarde des données) et déployé sur **Vercel**. Suis les étapes dans
@@ -369,3 +369,44 @@ fil du temps. Chaque entrée reprend les demandes traitées lors d'une session.
 
 - **Mise à jour des images d'îles** : nouvelles versions de `assets/islands/00_Janvier.png`
   à `07_Aout.png` (janvier à août).
+
+### 2026-11-16
+
+- **Statut « Transféré équipe » compté à 100 %** : une sous-catégorie (ou sous-sous-catégorie)
+  transférée remplit désormais entièrement la jauge (au lieu de 95 %), dans l'appli comme
+  dans la to-do complète. Sa pastille garde la couleur bleue « transféré » pour rester
+  distincte d'un « Terminé ».
+- **Mention « 🔁 transféré équipe » sur le taux du projet** : dès qu'un élément du projet est
+  transféré, une étiquette s'affiche à côté du pourcentage total du projet
+  (`projectHasTransfer` / `transferTagHtml` dans `js/app.js`, `transferTag` dans la to-do).
+- **Pourcentage du projet plus grand** : le taux total du projet (`.project-progress-mini`,
+  `.project-pct`) passe de 11 px grisé à 16 px en gras ; les sous-catégories ne changent pas.
+- **Pourcentage du mois plus grand** : dans la to-do complète, le % d'avancement affiché sur
+  la ligne de chaque mois (`.month-title .mstat`) passe de 12 px grisé à 18 px en gras. Le
+  compteur des projets archivés garde sa taille.
+- **« --% » pour un mois sans projet** : au lieu de « 0% », un mois qui n'a aucun projet
+  (hors archivés) affiche « --% » sous son île sur la carte et sur sa ligne dans la to-do
+  complète. Le calcul des stats (moyenne annuelle, nuages, badges) n'est pas modifié.
+- **Nouveau bloc-notes à gauche, avec plusieurs notes** : le bloc-notes unique du bas de page
+  devient un panneau latéral gauche (`#notes-sidebar`), repliable avec ✕ et rouvrable avec
+  l'onglet « 📝 Notes » sur le bord gauche. Il est ouvert par défaut sur grand écran
+  (≥ 1280 px, la page se décale alors) et passe par-dessus la page sur petit écran. Le
+  dernier choix ouvert/replié est retenu dans le navigateur.
+  - Plusieurs notes indépendantes (titre + texte), triées de la plus récente à la plus
+    ancienne, avec un filtre « Toutes / Sans projet / par projet ».
+  - Chaque note peut être reliée à un projet (liste groupée par mois, archivés à part) ; un
+    projet peut avoir plusieurs notes. Dans le panneau d'une île, le bouton « 📝 n » de chaque
+    projet ouvre ses notes, ou en crée une liée s'il n'en a pas encore.
+  - Fusion : cocher au moins 2 notes, « 🔗 Fusionner », puis confirmer. Les notes sont réunies
+    dans l'ordre chronologique (chaque partie précédée de son titre) et la note obtenue reste
+    liée au projet de la plus ancienne note qui en avait un.
+  - Suppression d'une note en deux clics (confirmation dans les 3 secondes).
+  - Sauvegarde : le champ `notes` de l'état Supabase devient un tableau
+    `{id, title, content, projectId, updatedAt}`. L'ancien texte unique est migré
+    automatiquement en une note « Notes générales » au premier chargement.
+- **Notes visibles dans la to-do complète** : chaque projet qui a des notes affiche un
+  bouton « 📝 n » à côté de son pourcentage. Il déplie ou replie ses notes en lecture
+  (titre, date, texte complet), aussi pour les projets archivés. Une section repliable
+  « 📝 Notes sans projet » regroupe les autres notes. « ✎ Modifier » ferme la to-do et ouvre
+  la note dans le bloc-notes de la carte (message `archipel-open-note`). Les notes sont
+  transmises à la page générée au moment de son ouverture.
